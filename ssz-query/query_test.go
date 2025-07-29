@@ -3,37 +3,36 @@ package sszquery_test
 import (
 	"testing"
 
-	"github.com/OffchainLabs/prysm/v6/config/params"
-	"github.com/OffchainLabs/prysm/v6/consensus-types/primitives"
 	ethpb "github.com/OffchainLabs/prysm/v6/proto/prysm/v1alpha1"
 	sszquery "github.com/OffchainLabs/prysm/v6/ssz-query"
 	"github.com/OffchainLabs/prysm/v6/testing/assert"
 )
 
+func TestPreCalculateSSZInfo(t *testing.T) {
+	// Test with a valid object.
+	obj := &ethpb.IndexedAttestationElectra{}
+	info, err := sszquery.PreCalculateSSZInfo(obj)
+	if err != nil {
+		t.Fatalf("PreCalculateSSZInfo failed: %v", err)
+	}
+
+	assert.NotNil(t, info, "Expected non-nil SSZ info")
+	assert.Equal(t, uint64(228), info.FixedSize(), "Expected fixed size to be 228")
+}
+
 func TestCalculateOffset(t *testing.T) {
-	// Build indexed attestation struct for testing.
-	data := &ethpb.AttestationData{
-		BeaconBlockRoot: params.BeaconConfig().ZeroHash[:],
-		Source: &ethpb.Checkpoint{
-			Epoch: primitives.Epoch(42),
-			Root:  []byte{'a'},
-		},
-		Target: &ethpb.Checkpoint{
-			Epoch: primitives.Epoch(43),
-			Root:  []byte{'b'},
-		},
-	}
-
-	indexedAtt := &ethpb.IndexedAttestationElectra{
-		AttestingIndices: []uint64{1, 2, 3},
-		Data:             data,
-		Signature:        []byte{'c'},
-	}
-
 	// Target path: .data.target.root
-	path := ".data.target.root"
+	path, err := sszquery.ParsePath(".data.target.root")
+	if err != nil {
+		t.Fatalf("ParsePath failed: %v", err)
+	}
 
-	offset, err := sszquery.CalculateOffset(indexedAtt, path)
+	info, err := sszquery.PreCalculateSSZInfo(&ethpb.IndexedAttestationElectra{})
+	if err != nil {
+		t.Fatalf("PreCalculateSSZInfo failed: %v", err)
+	}
+
+	offset, err := sszquery.CalculateOffset(info, path)
 	if err != nil {
 		t.Fatalf("ResolvePath failed: %v", err)
 	}
