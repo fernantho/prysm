@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "path.go",
         "query.go",
+        "ssz_info.go",
     ],
     importpath = "github.com/OffchainLabs/prysm/v6/ssz-query",
     visibility = ["//visibility:public"],
@@ -12,10 +13,13 @@ go_library(
 
 go_test(
     name = "go_default_test",
-    srcs = ["query_test.go"],
+    srcs = [
+        "path_test.go",
+        "query_test.go",
+    ],
     deps = [
-        "//config/params:go_default_library",
-        "//consensus-types/primitives:go_default_library",
+        ":go_default_library",
         "//proto/prysm/v1alpha1:go_default_library",
+        "//testing/assert:go_default_library",
     ],
 )
