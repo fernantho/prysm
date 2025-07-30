@@ -32,10 +32,11 @@ func TestCalculateOffset(t *testing.T) {
 		t.Fatalf("PreCalculateSSZInfo failed: %v", err)
 	}
 
-	offset, err := sszquery.CalculateOffset(info, path)
+	offset, length, err := sszquery.CalculateOffsetAndLength(info, path)
 	if err != nil {
 		t.Fatalf("ResolvePath failed: %v", err)
 	}
 
 	assert.Equal(t, uint64(100), offset, "Expected offset to be 100")
+	assert.Equal(t, uint64(32), length, "Expected length to be 32")
 }

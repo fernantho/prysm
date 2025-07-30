@@ -7,6 +7,7 @@ import (
 )
 
 // sszInfo holds the pre-calculated SSZ data for a struct type.
+// TODO: maybe we should another field for which type? (e.g., "Container", "List", etc.)
 type sszInfo struct {
 	// isVariable is true if the struct contains any variable-size fields.
 	isVariable bool
