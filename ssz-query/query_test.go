@@ -40,28 +40,20 @@ func TestCalculateOffset(t *testing.T) {
 func TestRoundTripSszInfo(t *testing.T) {
 	// Start with a pointer to empty object and calculate SSZ info of `IndexedAttestationElectra`.
 	info, err := sszquery.PreCalculateSSZInfo(&ethpb.IndexedAttestationElectra{})
-	require.NoError(t, err, "PreCalculateSSZInfo should not return an error")
+	require.NoError(t, err)
 
 	// Print the SSZ info for debugging.
 	println(info.Print())
 
-	// Calculate the offset and length for the path ".data.target.root".
-	path, err := sszquery.ParsePath(".data.target.root")
-	require.NoError(t, err, "ParsePath should not return an error")
-
-	offset, length, err := sszquery.CalculateOffsetAndLength(info, path)
-	require.NoError(t, err, "CalculateOffsetAndLength should not return an error")
-
+	// Construct IndexedAttestationElectra with dummy data.
 	dummyRoot, err := hexutil.Decode("0xcf8e0d4e9587369b2301d0790347320302cc0943d5a1884560367e8208d920f2")
 	require.NoError(t, err)
 	dummySignature, err := hexutil.Decode("0xc3a2f7d9e4a1b0c8d5e6f1a0b3c7d0e9f8a7b6c5d4e3f2a1b9c8d7e6f5a4b3c2d1e0f9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e28b7c6d5e4f3a2b1c0d9e8f7a6b5c")
 	require.NoError(t, err)
-
 	expectedTargetRoot, err := hexutil.Decode("0x4242424242424242424242424242424242424242424242424242424242424242")
-	require.NoError(t, err, "Decode should not return an error")
+	require.NoError(t, err)
 
-	// Marshal the real object to SSZ.
-	realObj := &ethpb.IndexedAttestationElectra{
+	indexedAtt := &ethpb.IndexedAttestationElectra{
 		AttestingIndices: []uint64{1, 2, 3},
 		Data: &ethpb.AttestationData{
 			Slot:            4,
@@ -73,23 +65,47 @@ func TestRoundTripSszInfo(t *testing.T) {
 			},
 			Target: &ethpb.Checkpoint{
 				Epoch: 9,
-				Root:  expectedTargetRoot, // We want this!
+				Root:  expectedTargetRoot,
 			},
 		},
 		Signature: dummySignature,
 	}
+	marshalledIndexedAtt, err := indexedAtt.MarshalSSZ()
+	require.NoError(t, err)
 
-	realObjMarshaled, err := realObj.MarshalSSZ()
-	if err != nil {
-		t.Fatalf("MarshalSSZ failed: %v", err)
+	tests := []struct {
+		path             string
+		expectedRawBytes []byte
+	}{
+		{
+			path:             ".data.target.root",
+			expectedRawBytes: indexedAtt.Data.Target.Root,
+		},
+		{
+			path: ".data.target",
+			expectedRawBytes: func(t *testing.T) []byte {
+				marshalledTarget, err := indexedAtt.Data.Target.MarshalSSZ()
+				require.NoError(t, err)
+				return marshalledTarget
+			}(t),
+		},
 	}
 
-	// With the offset and length, extract the target value from the marshaled data.
-	targetValue := realObjMarshaled[offset : offset+length]
-	if len(targetValue) != int(length) {
-		t.Fatalf("Extracted target value length mismatch: got %d, want %d", len(targetValue), length)
-	}
+	for _, test := range tests {
+		t.Run(test.path, func(t *testing.T) {
+			path, err := sszquery.ParsePath(test.path)
+			require.NoError(t, err)
 
-	// Check if it matches.
-	assert.DeepEqual(t, expectedTargetRoot, targetValue, "Extracted target value should match expected")
+			offset, length, err := sszquery.CalculateOffsetAndLength(info, path)
+			require.NoError(t, err)
+
+			rawBytes := marshalledIndexedAtt[offset : offset+length]
+			if len(rawBytes) != int(length) {
+				t.Fatalf("Extracted target value length mismatch: got %d, want %d", len(rawBytes), length)
+			}
+
+			assert.DeepEqual(t, test.expectedRawBytes, rawBytes, "Extracted target value should match expected")
+		})
+
+	}
 }
