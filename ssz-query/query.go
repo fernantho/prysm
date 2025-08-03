@@ -92,6 +92,7 @@ func analyzeType(typ reflect.Type, tag *reflect.StructTag) (*sszInfo, error) {
 				// `BytesN` type is an alias of `Vector[byte, N]`, so we use Vector type.
 				// TODO: How can we distinguish between `BytesN` and `uint{128,256}`?
 				sszType: Vector,
+				typ:     typ,
 
 				fixedSize:  uint64(byteLength),
 				isVariable: false,
@@ -112,6 +113,8 @@ func analyzeType(typ reflect.Type, tag *reflect.StructTag) (*sszInfo, error) {
 // analyzeBasicType analyzes SSZ basic types (uintN, bool) and returns its info.
 func analyzeBasicType(typ reflect.Type) (*sszInfo, error) {
 	sszInfo := &sszInfo{
+		typ: typ,
+
 		// Every basic type is fixed-size and not variable.
 		isVariable: false,
 	}
@@ -150,6 +153,7 @@ func analyzeContainerType(typ reflect.Type) (*sszInfo, error) {
 
 	sszInfo := &sszInfo{
 		sszType: Container,
+		typ:     typ,
 
 		fieldOffsets: make(map[string]uint64),
 		goFieldNames: make(map[string]string),
@@ -225,6 +229,7 @@ func analyzeHomogeneousColType(typ reflect.Type, tag *reflect.StructTag) (*sszIn
 		return &sszInfo{
 			// TODO: How do we distinguish between List and Bitlist?
 			sszType: List,
+			typ:     typ,
 
 			fixedSize:  4,
 			isVariable: true,
@@ -241,6 +246,7 @@ func analyzeHomogeneousColType(typ reflect.Type, tag *reflect.StructTag) (*sszIn
 	return &sszInfo{
 		// TODO: How do we distinguish between Vector and List?
 		sszType: Vector,
+		typ:     typ,
 
 		fixedSize:  uint64(sizeVal),
 		isVariable: false,

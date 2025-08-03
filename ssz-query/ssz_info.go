@@ -2,6 +2,7 @@ package sszquery
 
 import (
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 )
@@ -63,6 +64,7 @@ func (t SSZType) String() string {
 type sszInfo struct {
 	// Type of the SSZ structure (Basic, Container, List).
 	sszType SSZType
+	typ     reflect.Type
 
 	// isVariable is true if the struct contains any variable-size fields.
 	isVariable bool
@@ -97,7 +99,11 @@ func (info *sszInfo) Print() string {
 }
 
 func printRecursive(info *sszInfo, builder *strings.Builder, prefix string) {
-	builder.WriteString(fmt.Sprintf("%s (fixedSize: %d, isVariable: %t)\n", info.sszType, info.fixedSize, info.isVariable))
+	if info.sszType == Container {
+		builder.WriteString(fmt.Sprintf("%s: %s (fixedSize: %d, isVariable: %t)\n", info.sszType, info.typ.Name(), info.fixedSize, info.isVariable))
+	} else {
+		builder.WriteString(fmt.Sprintf("%s (fixedSize: %d, isVariable: %t)\n", info.sszType, info.fixedSize, info.isVariable))
+	}
 
 	keys := make([]string, 0, len(info.fieldOffsets))
 	for k := range info.fieldOffsets {
