@@ -62,7 +62,6 @@ func (t SSZType) String() string {
 }
 
 // sszInfo holds the pre-calculated SSZ data for a struct type.
-// TODO: maybe we should another field for which type? (e.g., "Container", "List", etc.)
 type sszInfo struct {
 	// Type of the SSZ structure (Basic, Container, List).
 	sszType SSZType
@@ -73,15 +72,15 @@ type sszInfo struct {
 	// fixedSize is the total size of the struct's fixed part.
 	fixedSize uint64
 
-	// For structs, additional information is stored:
-	//
-	// fieldOffsets maps a field's JSON name to its offset within the struct's fixed part.
-	fieldOffsets map[string]uint64
-	// goFieldNames maps a field's JSON name to its Go struct field name (e.g., "attesting_indices" -> "AttestingIndices").
-	// TODO: do we need this?
-	goFieldNames map[string]string
+	// For structs:
 	// fieldInfos maps a field's JSON name to its SSZ info (for nested structs).
-	fieldInfos map[string]*sszInfo
+	fieldInfos map[string]*fieldInfo
+}
+
+type fieldInfo struct {
+	sszInfo *sszInfo
+	// offset is the offset of the field within the parent struct.
+	offset uint64
 }
 
 func (info *sszInfo) FixedSize() uint64 {
@@ -131,8 +130,8 @@ func printRecursive(info *sszInfo, builder *strings.Builder, prefix string) {
 		builder.WriteString(fmt.Sprintf("%s (fixedSize: %d, isVariable: %t)\n", info.sszType, info.fixedSize, info.isVariable))
 	}
 
-	keys := make([]string, 0, len(info.fieldOffsets))
-	for k := range info.fieldOffsets {
+	keys := make([]string, 0, len(info.fieldInfos))
+	for k := range info.fieldInfos {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
@@ -145,9 +144,9 @@ func printRecursive(info *sszInfo, builder *strings.Builder, prefix string) {
 			nextPrefix = prefix + "   "
 		}
 
-		builder.WriteString(fmt.Sprintf("%s%s %s (offset: %d) ", prefix, connector, key, info.fieldOffsets[key]))
+		builder.WriteString(fmt.Sprintf("%s%s %s (offset: %d) ", prefix, connector, key, info.fieldInfos[key].offset))
 
-		if nestedInfo, ok := info.fieldInfos[key]; ok && nestedInfo != nil {
+		if nestedInfo := info.fieldInfos[key].sszInfo; nestedInfo != nil {
 			printRecursive(nestedInfo, builder, nextPrefix)
 		} else {
 			builder.WriteString("\n")

@@ -46,18 +46,14 @@ func CalculateOffsetAndLength(sszInfo *sszInfo, path []PathElement) (*sszInfo, u
 	currentOffset := uint64(0)
 
 	for _, elem := range path {
-		offset, exists := walk.fieldOffsets[elem.Name]
+		fieldInfo, exists := walk.fieldInfos[elem.Name]
 		if !exists {
 			// TODO: This logic is only for accessing the field in SSZ container types.
 			return nil, 0, 0, fmt.Errorf("field %s not found in fieldOffsets", elem.Name)
 		}
 
-		currentOffset += offset
-		walk, exists = walk.fieldInfos[elem.Name]
-		if !exists {
-			// TODO: Same as above.
-			return nil, 0, 0, fmt.Errorf("field %s not found in fieldInfos", elem.Name)
-		}
+		currentOffset += fieldInfo.offset
+		walk = fieldInfo.sszInfo
 	}
 
 	return walk, currentOffset, walk.FixedSize(), nil
@@ -155,9 +151,7 @@ func analyzeContainerType(typ reflect.Type) (*sszInfo, error) {
 		sszType: Container,
 		typ:     typ,
 
-		fieldOffsets: make(map[string]uint64),
-		goFieldNames: make(map[string]string),
-		fieldInfos:   make(map[string]*sszInfo),
+		fieldInfos: make(map[string]*fieldInfo),
 	}
 	var currentOffset uint64
 	var structIsVariable bool
@@ -197,10 +191,11 @@ func analyzeContainerType(typ reflect.Type) (*sszInfo, error) {
 			structIsVariable = true
 		}
 
-		sszInfo.fieldOffsets[fieldName] = currentOffset
-		sszInfo.goFieldNames[fieldName] = field.Name
 		// Store nested struct info.
-		sszInfo.fieldInfos[fieldName] = info
+		sszInfo.fieldInfos[fieldName] = &fieldInfo{
+			sszInfo: info,
+			offset:  currentOffset,
+		}
 
 		// Update the current offset based on the field's fixed size.
 		currentOffset += info.fixedSize
