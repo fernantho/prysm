@@ -76,9 +76,8 @@ func TestRoundTripSszInfo(t *testing.T) {
 	require.NoError(t, err)
 
 	tests := []struct {
-		path             string
-		expected         any
-		expectedRawBytes []byte
+		path     string
+		expected any
 	}{
 		{
 			path:     ".data.target.root",
@@ -87,6 +86,14 @@ func TestRoundTripSszInfo(t *testing.T) {
 		{
 			path:     ".data.target",
 			expected: indexedAtt.Data.Target,
+		},
+		{
+			path:     ".data",
+			expected: indexedAtt.Data,
+		},
+		{
+			path:     ".signature",
+			expected: indexedAtt.Signature,
 		},
 	}
 
