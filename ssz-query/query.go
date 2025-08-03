@@ -97,6 +97,14 @@ func analyzeType(typ reflect.Type, tag *reflect.StructTag) (*sszInfo, error) {
 
 				fixedSize:  uint64(byteLength),
 				isVariable: false,
+
+				elementInfo: &sszInfo{
+					sszType: UintN,
+					typ:     elemType,
+
+					fixedSize:  8,
+					isVariable: false,
+				},
 			}, nil
 		}
 

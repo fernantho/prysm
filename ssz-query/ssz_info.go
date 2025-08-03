@@ -131,7 +131,7 @@ func printRecursive(info *sszInfo, builder *strings.Builder, prefix string) {
 	case Container:
 		builder.WriteString(fmt.Sprintf("%s: %s (fixedSize: %d, isVariable: %t)\n", info.sszType, info.typ.Name(), info.fixedSize, info.isVariable))
 	case List, Vector:
-		builder.WriteString(fmt.Sprintf("%s[placeholder] (fixedSize: %d, isVariable: %t)\n", info.sszType /* info.elementInfo.typ.Name(), */, info.fixedSize, info.isVariable))
+		builder.WriteString(fmt.Sprintf("%s[%s] (fixedSize: %d, isVariable: %t)\n", info.sszType, info.elementInfo.typ.Name(), info.fixedSize, info.isVariable))
 	default:
 		builder.WriteString(fmt.Sprintf("%s (fixedSize: %d, isVariable: %t)\n", info.sszType, info.fixedSize, info.isVariable))
 	}
