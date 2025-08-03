@@ -72,9 +72,12 @@ type sszInfo struct {
 	// fixedSize is the total size of the struct's fixed part.
 	fixedSize uint64
 
-	// For structs:
-	// fieldInfos maps a field's JSON name to its SSZ info (for nested structs).
+	// For Container types:
+	// fieldInfos maps a field's JSON name to its SSZ info (for nested Containers).
 	fieldInfos map[string]*fieldInfo
+
+	// For List/Vector types:
+	elementInfo *sszInfo
 }
 
 type fieldInfo struct {
@@ -124,9 +127,12 @@ func (info *sszInfo) Print() string {
 }
 
 func printRecursive(info *sszInfo, builder *strings.Builder, prefix string) {
-	if info.sszType == Container {
+	switch info.sszType {
+	case Container:
 		builder.WriteString(fmt.Sprintf("%s: %s (fixedSize: %d, isVariable: %t)\n", info.sszType, info.typ.Name(), info.fixedSize, info.isVariable))
-	} else {
+	case List, Vector:
+		builder.WriteString(fmt.Sprintf("%s[placeholder] (fixedSize: %d, isVariable: %t)\n", info.sszType /* info.elementInfo.typ.Name(), */, info.fixedSize, info.isVariable))
+	default:
 		builder.WriteString(fmt.Sprintf("%s (fixedSize: %d, isVariable: %t)\n", info.sszType, info.fixedSize, info.isVariable))
 	}
 

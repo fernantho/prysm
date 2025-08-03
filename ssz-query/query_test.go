@@ -81,6 +81,7 @@ func TestRoundTripSszInfo(t *testing.T) {
 		path     string
 		expected any
 	}{
+		// Test paths for the fixed size types.
 		{
 			path:     ".data.target.root",
 			expected: indexedAtt.Data.Target.Root,
@@ -96,6 +97,12 @@ func TestRoundTripSszInfo(t *testing.T) {
 		{
 			path:     ".signature",
 			expected: indexedAtt.Signature,
+		},
+
+		// Test paths for the variable size types.
+		{
+			path:     ".attesting_indices",
+			expected: indexedAtt.AttestingIndices,
 		},
 	}
 
@@ -132,6 +139,12 @@ func marshalAny(value any) ([]byte, error) {
 		return v.MarshalSSZ()
 	case []byte:
 		return v, nil
+	case []uint64:
+		buf := make([]byte, len(v)*8)
+		for i, val := range v {
+			ssz.MarshalUint64(buf[i*8:], val)
+		}
+		return buf, nil
 	default:
 		return nil, fmt.Errorf("unsupported type for SSZ marshalling: %T", value)
 	}

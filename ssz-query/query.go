@@ -56,6 +56,11 @@ func CalculateOffsetAndLength(sszInfo *sszInfo, path []PathElement) (*sszInfo, u
 		walk = fieldInfo.sszInfo
 	}
 
+	// TODO: Handle variable-sized types.
+	if walk.isVariable {
+		return nil, 0, 0, fmt.Errorf("cannot calculate offset and length for variable-sized type %s", walk.typ.Name())
+	}
+
 	return walk, currentOffset, walk.FixedSize(), nil
 }
 
@@ -217,20 +222,18 @@ func analyzeHomogeneousColType(typ reflect.Type, tag *reflect.StructTag) (*sszIn
 		return nil, fmt.Errorf("tag is required for slice/array types")
 	}
 
-	// Prioritize ssz-max tag if present.
-	// ssz-max is only used for variable sized types like List and Bitlist.
+	// 1. Check if the type is List/Bitlist by checking `ssz-max` tag.
 	sszMax := tag.Get(sszMaxTag)
 	if sszMax != "" {
-		return &sszInfo{
-			// TODO: How do we distinguish between List and Bitlist?
-			sszType: List,
-			typ:     typ,
+		limit, err := strconv.ParseUint(sszMax, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid ssz-max tag on field: %w", err)
+		}
 
-			fixedSize:  4,
-			isVariable: true,
-		}, nil
+		return analyzeListType(typ, limit)
 	}
 
+	// 2. Handle Vector/Bitvector type.
 	sszSize := tag.Get(sszSizeTag)
 	dims := strings.Split(sszSize, ",")
 	sizeVal, err := strconv.Atoi(dims[0])
@@ -245,5 +248,26 @@ func analyzeHomogeneousColType(typ reflect.Type, tag *reflect.StructTag) (*sszIn
 
 		fixedSize:  uint64(sizeVal),
 		isVariable: false,
+	}, nil
+}
+
+func analyzeListType(typ reflect.Type, _limit uint64) (*sszInfo, error) {
+	elementInfo, err := analyzeType(typ.Elem(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("analyze element type for List: %w", err)
+	}
+
+	println("Element type for List:", elementInfo.typ.Name())
+	println(elementInfo.Print())
+
+	return &sszInfo{
+		// TODO: How do we distinguish between List and Bitlist?
+		sszType: List,
+		typ:     typ,
+
+		fixedSize:  4,
+		isVariable: true,
+
+		elementInfo: elementInfo,
 	}, nil
 }
