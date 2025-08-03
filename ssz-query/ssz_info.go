@@ -6,9 +6,64 @@ import (
 	"strings"
 )
 
+// SSZType represents the type supported by SSZ.
+// https://github.com/ethereum/consensus-specs/blob/master/ssz/simple-serialize.md#typing
+type SSZType int
+
+// SSZ type constants.
+const (
+	// Basic types
+	UintN SSZType = iota
+	Byte
+	Boolean
+
+	// Composite types
+	Container
+	Vector
+	List
+	Bitvector
+	Bitlist
+
+	// Added in EIP-7916
+	// TODO: Support ProgressiveList
+	ProgressiveList
+	// TODO: Support Union
+	Union
+)
+
+func (t SSZType) String() string {
+	switch t {
+	case UintN:
+		return "UintN"
+	case Byte:
+		return "Byte"
+	case Boolean:
+		return "Boolean"
+	case Container:
+		return "Container"
+	case Vector:
+		return "Vector"
+	case List:
+		return "List"
+	case Bitvector:
+		return "Bitvector"
+	case Bitlist:
+		return "Bitlist"
+	case ProgressiveList:
+		return "ProgressiveList"
+	case Union:
+		return "Union"
+	default:
+		return fmt.Sprintf("Unknown(%d)", t)
+	}
+}
+
 // sszInfo holds the pre-calculated SSZ data for a struct type.
 // TODO: maybe we should another field for which type? (e.g., "Container", "List", etc.)
 type sszInfo struct {
+	// Type of the SSZ structure (Basic, Container, List).
+	sszType SSZType
+
 	// isVariable is true if the struct contains any variable-size fields.
 	isVariable bool
 	// fixedSize is the total size of the struct's fixed part.
@@ -42,7 +97,7 @@ func (info *sszInfo) Print() string {
 }
 
 func printRecursive(info *sszInfo, builder *strings.Builder, prefix string) {
-	builder.WriteString(fmt.Sprintf("Struct (fixedSize: %d, isVariable: %t)\n", info.fixedSize, info.isVariable))
+	builder.WriteString(fmt.Sprintf("%s (fixedSize: %d, isVariable: %t)\n", info.sszType, info.fixedSize, info.isVariable))
 
 	keys := make([]string, 0, len(info.fieldOffsets))
 	for k := range info.fieldOffsets {

@@ -89,6 +89,10 @@ func analyzeType(typ reflect.Type, tag *reflect.StructTag) (*sszInfo, error) {
 			}
 
 			return &sszInfo{
+				// `BytesN` type is an alias of `Vector[byte, N]`, so we use Vector type.
+				// TODO: How can we distinguish between `BytesN` and `uint{128,256}`?
+				sszType: Vector,
+
 				fixedSize:  uint64(byteLength),
 				isVariable: false,
 			}, nil
@@ -114,18 +118,23 @@ func analyzeBasicType(typ reflect.Type) (*sszInfo, error) {
 
 	switch typ.Kind() {
 	case reflect.Uint64:
+		sszInfo.sszType = UintN
 		sszInfo.fixedSize = 8
 		return sszInfo, nil
 	case reflect.Uint32:
+		sszInfo.sszType = UintN
 		sszInfo.fixedSize = 4
 		return sszInfo, nil
 	case reflect.Uint16:
+		sszInfo.sszType = UintN
 		sszInfo.fixedSize = 2
 		return sszInfo, nil
 	case reflect.Uint8:
+		sszInfo.sszType = UintN
 		sszInfo.fixedSize = 1
 		return sszInfo, nil
 	case reflect.Bool:
+		sszInfo.sszType = Boolean
 		sszInfo.fixedSize = 1
 		return sszInfo, nil
 	default:
@@ -140,6 +149,8 @@ func analyzeContainerType(typ reflect.Type) (*sszInfo, error) {
 	}
 
 	sszInfo := &sszInfo{
+		sszType: Container,
+
 		fieldOffsets: make(map[string]uint64),
 		goFieldNames: make(map[string]string),
 		fieldInfos:   make(map[string]*sszInfo),
@@ -212,6 +223,9 @@ func analyzeHomogeneousColType(typ reflect.Type, tag *reflect.StructTag) (*sszIn
 	sszMax := tag.Get(sszMaxTag)
 	if sszMax != "" {
 		return &sszInfo{
+			// TODO: How do we distinguish between List and Bitlist?
+			sszType: List,
+
 			fixedSize:  4,
 			isVariable: true,
 		}, nil
@@ -225,6 +239,9 @@ func analyzeHomogeneousColType(typ reflect.Type, tag *reflect.StructTag) (*sszIn
 	}
 
 	return &sszInfo{
+		// TODO: How do we distinguish between Vector and List?
+		sszType: Vector,
+
 		fixedSize:  uint64(sizeVal),
 		isVariable: false,
 	}, nil
