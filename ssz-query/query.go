@@ -33,13 +33,13 @@ func PreCalculateSSZInfo(obj any) (*sszInfo, error) {
 	return info, nil
 }
 
-func CalculateOffsetAndLength(sszInfo *sszInfo, path []PathElement) (uint64, uint64, error) {
+func CalculateOffsetAndLength(sszInfo *sszInfo, path []PathElement) (*sszInfo, uint64, uint64, error) {
 	if sszInfo == nil {
-		return 0, 0, fmt.Errorf("sszInfo is nil")
+		return nil, 0, 0, fmt.Errorf("sszInfo is nil")
 	}
 
 	if len(path) == 0 {
-		return 0, 0, fmt.Errorf("path is empty")
+		return nil, 0, 0, fmt.Errorf("path is empty")
 	}
 
 	walk := sszInfo
@@ -49,18 +49,18 @@ func CalculateOffsetAndLength(sszInfo *sszInfo, path []PathElement) (uint64, uin
 		offset, exists := walk.fieldOffsets[elem.Name]
 		if !exists {
 			// TODO: This logic is only for accessing the field in SSZ container types.
-			return 0, 0, fmt.Errorf("field %s not found in fieldOffsets", elem.Name)
+			return nil, 0, 0, fmt.Errorf("field %s not found in fieldOffsets", elem.Name)
 		}
 
 		currentOffset += offset
 		walk, exists = walk.fieldInfos[elem.Name]
 		if !exists {
 			// TODO: Same as above.
-			return 0, 0, fmt.Errorf("field %s not found in fieldInfos", elem.Name)
+			return nil, 0, 0, fmt.Errorf("field %s not found in fieldInfos", elem.Name)
 		}
 	}
 
-	return currentOffset, walk.FixedSize(), nil
+	return walk, currentOffset, walk.FixedSize(), nil
 }
 
 // analyzeType is an entry point that inspects a reflect.Type and computes its SSZ layout information.

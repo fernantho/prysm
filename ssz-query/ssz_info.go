@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+
+	ssz "github.com/prysmaticlabs/fastssz"
 )
 
 // SSZType represents the type supported by SSZ.
@@ -87,6 +89,30 @@ func (info *sszInfo) FixedSize() uint64 {
 		return 0
 	}
 	return info.fixedSize
+}
+
+func (info *sszInfo) UnmarshalFromSSZ(data []byte) (any, error) {
+	if info == nil || info.typ == nil {
+		return nil, fmt.Errorf("sszInfo or its type is nil")
+	}
+
+	newObjPtr := reflect.New(info.typ)
+
+	unmarshaler, ok := newObjPtr.Interface().(ssz.Unmarshaler)
+	if !ok {
+		// If the type is `[]byte`, we can return the raw bytes directly.
+		if info.typ.Kind() == reflect.Slice && info.typ.Elem().Kind() == reflect.Uint8 {
+			return data, nil
+		}
+
+		return nil, fmt.Errorf("type %v does not implement ssz.Unmarshaler", info.typ)
+	}
+
+	if err := unmarshaler.UnmarshalSSZ(data); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal for type %v: %w", info.typ, err)
+	}
+
+	return newObjPtr.Interface(), nil
 }
 
 func (info *sszInfo) Print() string {

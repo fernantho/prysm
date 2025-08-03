@@ -1,6 +1,7 @@
 package sszquery_test
 
 import (
+	"fmt"
 	"testing"
 
 	ethpb "github.com/OffchainLabs/prysm/v6/proto/prysm/v1alpha1"
@@ -8,6 +9,7 @@ import (
 	"github.com/OffchainLabs/prysm/v6/testing/assert"
 	"github.com/OffchainLabs/prysm/v6/testing/require"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	ssz "github.com/prysmaticlabs/fastssz"
 )
 
 func TestPreCalculateSSZInfo(t *testing.T) {
@@ -28,7 +30,7 @@ func TestCalculateOffset(t *testing.T) {
 	info, err := sszquery.PreCalculateSSZInfo(&ethpb.IndexedAttestationElectra{})
 	require.NoError(t, err, "PreCalculateSSZInfo should not return an error")
 
-	offset, length, err := sszquery.CalculateOffsetAndLength(info, path)
+	_, offset, length, err := sszquery.CalculateOffsetAndLength(info, path)
 	if err != nil {
 		t.Fatalf("ResolvePath failed: %v", err)
 	}
@@ -75,19 +77,16 @@ func TestRoundTripSszInfo(t *testing.T) {
 
 	tests := []struct {
 		path             string
+		expected         any
 		expectedRawBytes []byte
 	}{
 		{
-			path:             ".data.target.root",
-			expectedRawBytes: indexedAtt.Data.Target.Root,
+			path:     ".data.target.root",
+			expected: indexedAtt.Data.Target.Root,
 		},
 		{
-			path: ".data.target",
-			expectedRawBytes: func(t *testing.T) []byte {
-				marshalledTarget, err := indexedAtt.Data.Target.MarshalSSZ()
-				require.NoError(t, err)
-				return marshalledTarget
-			}(t),
+			path:     ".data.target",
+			expected: indexedAtt.Data.Target,
 		},
 	}
 
@@ -96,16 +95,35 @@ func TestRoundTripSszInfo(t *testing.T) {
 			path, err := sszquery.ParsePath(test.path)
 			require.NoError(t, err)
 
-			offset, length, err := sszquery.CalculateOffsetAndLength(info, path)
+			info, offset, length, err := sszquery.CalculateOffsetAndLength(info, path)
 			require.NoError(t, err)
 
-			rawBytes := marshalledIndexedAtt[offset : offset+length]
-			if len(rawBytes) != int(length) {
-				t.Fatalf("Extracted target value length mismatch: got %d, want %d", len(rawBytes), length)
+			expectedRawBytes := marshalledIndexedAtt[offset : offset+length]
+			if len(expectedRawBytes) != int(length) {
+				t.Fatalf("Extracted target value length mismatch: got %d, want %d", len(expectedRawBytes), length)
 			}
 
-			assert.DeepEqual(t, test.expectedRawBytes, rawBytes, "Extracted target value should match expected")
+			// Compare bytes
+			rawBytes, err := marshalAny(test.expected)
+			require.NoError(t, err, "Marshalling expected value should not return an error")
+			assert.DeepEqual(t, expectedRawBytes, rawBytes, "Extracted target value should match expected")
+
+			// Compare unmarshalled value
+			unmarshalledValue, err := info.UnmarshalFromSSZ(expectedRawBytes)
+			require.NoError(t, err, "Unmarshalling extracted value should not return an error")
+			assert.DeepEqual(t, test.expected, unmarshalledValue, "Unmarshalled value should match expected")
 		})
 
+	}
+}
+
+func marshalAny(value any) ([]byte, error) {
+	switch v := value.(type) {
+	case ssz.Marshaler:
+		return v.MarshalSSZ()
+	case []byte:
+		return v, nil
+	default:
+		return nil, fmt.Errorf("unsupported type for SSZ marshalling: %T", value)
 	}
 }
