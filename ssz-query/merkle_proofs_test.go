@@ -5,6 +5,7 @@ import (
 
 	ethpb "github.com/OffchainLabs/prysm/v6/proto/prysm/v1alpha1"
 	sszquery "github.com/OffchainLabs/prysm/v6/ssz-query"
+	"github.com/OffchainLabs/prysm/v6/testing/assert"
 	"github.com/OffchainLabs/prysm/v6/testing/require"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 )
@@ -47,60 +48,10 @@ func TestRoundTripSszInfoWithMerkle(t *testing.T) {
 	marshalledIndexedAtt, err := indexedAtt.MarshalSSZ()
 	require.NoError(t, err)
 
-	println(info.HashTreeRootHex(marshalledIndexedAtt)) // Print the hash tree root for debugging.
+	hashTreeRoot := info.HashTreeRootHex(marshalledIndexedAtt)
 
-	// tests := []struct {
-	// 	path     string
-	// 	expected any
-	// }{
-	// 	// Test paths for the fixed size types.
-	// 	{
-	// 		path:     ".data.target.root",
-	// 		expected: indexedAtt.Data.Target.Root,
-	// 	},
-	// 	{
-	// 		path:     ".data.target",
-	// 		expected: indexedAtt.Data.Target,
-	// 	},
-	// 	{
-	// 		path:     ".data",
-	// 		expected: indexedAtt.Data,
-	// 	},
-	// 	{
-	// 		path:     ".signature",
-	// 		expected: indexedAtt.Signature,
-	// 	},
+	assert.Equal(t, "0xcfa6677fc85ca14fc66d6b955313edaad105d6407653c222bc8a2578d59f8e6c", hashTreeRoot)
 
-	// 	// Test paths for the variable size types.
-	// 	// {
-	// 	// 	path:     ".attesting_indices",
-	// 	// 	expected: indexedAtt.AttestingIndices,
-	// 	// },
-	// }
+	// Attesting indices hash tree root 0x9c1b5f05a20688d97b4ddac6ea6306f0e632306b133662303c7ae40c996c2ccb
 
-	// for _, test := range tests {
-	// 	t.Run(test.path, func(t *testing.T) {
-	// 		path, err := sszquery.ParsePath(test.path)
-	// 		require.NoError(t, err)
-
-	// 		info, offset, length, err := sszquery.CalculateOffsetAndLength(info, path)
-	// 		require.NoError(t, err)
-
-	// 		expectedRawBytes := marshalledIndexedAtt[offset : offset+length]
-	// 		if len(expectedRawBytes) != int(length) {
-	// 			t.Fatalf("Extracted target value length mismatch: got %d, want %d", len(expectedRawBytes), length)
-	// 		}
-
-	// 		// Compare bytes
-	// 		// rawBytes, err := marshalAny(test.expected)
-	// 		// require.NoError(t, err, "Marshalling expected value should not return an error")
-	// 		// assert.DeepEqual(t, expectedRawBytes, rawBytes, "Extracted target value should match expected")
-
-	// 		// // Compare unmarshalled value
-	// 		// unmarshalledValue, err := info.UnmarshalFromSSZ(expectedRawBytes)
-	// 		// require.NoError(t, err, "Unmarshalling extracted value should not return an error")
-	// 		// assert.DeepEqual(t, test.expected, unmarshalledValue, "Unmarshalled value should match expected")
-	// 	})
-
-	// }
 }

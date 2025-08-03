@@ -297,7 +297,6 @@ func (info *sszInfo) computeListHashTreeRoot(data []byte) ([32]byte, error) {
 	binary.LittleEndian.PutUint64(lengthBytes[:8], numElements)
 	return ssz.MixInLength(root, lengthBytes), nil
 
-	// Attesting indices hash tree root 0x9c1b5f05a20688d97b4ddac6ea6306f0e632306b133662303c7ae40c996c2ccb
 }
 
 // computeVectorHashTreeRoot computes the hash tree root for a vector
