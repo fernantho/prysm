@@ -29,7 +29,7 @@ func RunStructTest(t *testing.T, spec TestSpec) {
 				assert.NoError(t, err)
 
 				expectedRawBytes := marshalledData[offset : offset+length]
-				assert.Equal(t, len(expectedRawBytes), int(length), "Extracted value length mismatch: got %d, want %d", len(expectedRawBytes), length)
+				assert.Equal(t, uint64(len(expectedRawBytes)), length, "Extracted value length mismatch: got %d, want %d", len(expectedRawBytes), length)
 
 				rawBytes, err := marshalAny(pathTest.Expected)
 				assert.NoError(t, err, "Marshalling expected value should not return an error")
