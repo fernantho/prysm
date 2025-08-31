@@ -9,3 +9,22 @@ type fieldInfo struct {
 	// offset is the offset of the field within the parent struct.
 	offset uint64
 }
+
+// Exported alias (or type) for container field map.
+type ContainerInfo = containerInfo
+
+// Exported FieldInfo with accessors
+type FieldInfo = fieldInfo
+
+// Exported fields
+func (f *FieldInfo) SSZ() *SSZInfo {
+	return f.sszInfo
+}
+
+func (f *FieldInfo) Offset() uint64 {
+	return f.offset
+}
+
+func (f *FieldInfo) ActualOffset() uint64 {
+	return f.offset
+}

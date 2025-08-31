@@ -8,7 +8,7 @@ import (
 	"github.com/OffchainLabs/prysm/v6/testing/require"
 )
 
-func TestAnalyzeSSZInfo(t *testing.T) {
+func TestAnalyzeObject(t *testing.T) {
 	info, err := query.AnalyzeObject(&sszquerypb.FixedTestContainer{})
 	require.NoError(t, err)
 
