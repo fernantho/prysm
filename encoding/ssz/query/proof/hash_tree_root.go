@@ -8,6 +8,7 @@ import (
 	ssz "github.com/OffchainLabs/prysm/v6/encoding/ssz"
 	sszquery "github.com/OffchainLabs/prysm/v6/encoding/ssz/query"
 )
+
 // Public function to compute the hash tree root for a given sszInfo struct
 // and a given byte slice containing the marshalled data. Entry point for external calls.
 func HashTreeRootFromBytes(info *sszquery.SSZInfo, marshalledData []byte) ([32]byte, error) {
@@ -47,7 +48,7 @@ func hashTreeRootFromBytes(info *sszquery.SSZInfo, data []byte) ([32]byte, error
 // computeBasicHashTreeRoot computes the hash tree root for basic types
 // For basic types, pad to 32 bytes and return the chunk
 func computeBasicHashTreeRoot(info *sszquery.SSZInfo, data []byte) ([32]byte, error) {
-	var chunk [bytesPerChunk]byte
+	var chunk [32]byte
 	copy(chunk[:], data[:info.FixedSize()])
 	return chunk, nil
 }
