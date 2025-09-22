@@ -14,38 +14,6 @@ import (
 	ssz "github.com/prysmaticlabs/fastssz"
 )
 
-func TestHasher(t *testing.T) {
-	pool := &ssz.DefaultHasherPool
-
-	hh := pool.Get()
-	defer pool.Put(hh)
-
-	data := []uint64{1, 2, 3, 4, 5}
-	_ = data // Use the variable to avoid unused variable error
-
-	hh.PutUint64Array(data)
-
-	root, err := hh.HashRoot()
-	require.NoError(t, err)
-	t.Logf("HashRoot: %x", root[:])
-}
-
-func TestHashTreeRootFromBytes_NewHashTreeRoots(t *testing.T) {
-	// --- uint64 ---
-	u64Info, err := sszquery.AnalyzeObject(new(uint64))
-	require.NoError(t, err)
-
-	// uint64(1) in little-endian
-	u64 := make([]byte, 8)
-	binary.LittleEndian.PutUint64(u64, 1)
-
-	root, err := proof.HashTreeRoot(u64Info, u64)
-	require.NoError(t, err)
-
-	t.Logf("HashTreeRoot: %x", root[:])
-
-}
-
 func TestHashTreeRootFromBytes_Basic(t *testing.T) {
 	// --- uint64 ---
 	u64Info, err := sszquery.AnalyzeObject(new(uint64))
@@ -55,7 +23,7 @@ func TestHashTreeRootFromBytes_Basic(t *testing.T) {
 	u64 := make([]byte, 8)
 	binary.LittleEndian.PutUint64(u64, 1)
 
-	root, err := proof.HashTreeRootFromBytes(u64Info, u64)
+	root, err := proof.HashTreeRoot(u64Info, u64)
 	require.NoError(t, err)
 
 	root, err = proof.HashTreeRoot(u64Info, u64)
@@ -72,7 +40,7 @@ func TestHashTreeRootFromBytes_Basic(t *testing.T) {
 	require.NoError(t, err)
 
 	bTrue := []byte{0x01}
-	root, err = proof.HashTreeRootFromBytes(boolInfo, bTrue)
+	root, err = proof.HashTreeRoot(boolInfo, bTrue)
 	require.NoError(t, err)
 
 	expected = [32]byte{0x01}
@@ -80,7 +48,7 @@ func TestHashTreeRootFromBytes_Basic(t *testing.T) {
 
 	// --- bool false ---
 	bFalse := []byte{0x00}
-	root, err = proof.HashTreeRootFromBytes(boolInfo, bFalse)
+	root, err = proof.HashTreeRoot(boolInfo, bFalse)
 	require.NoError(t, err)
 
 	expected = [32]byte{0x00}
@@ -91,7 +59,7 @@ func TestHashTreeRootFromBytes_Basic(t *testing.T) {
 	require.NoError(t, err)
 
 	b := []byte{0xAB}
-	root, err = proof.HashTreeRootFromBytes(byteInfo, b)
+	root, err = proof.HashTreeRoot(byteInfo, b)
 	require.NoError(t, err)
 
 	expected = [32]byte{0xAB}
@@ -110,7 +78,7 @@ func TestHashTreeRootFromBytes_ContainerBasicTypeFields_VoluntaryExit(t *testing
 	data, err := ssz.MarshalSSZ(voluntaryExit)
 	require.NoError(t, err)
 
-	root, err := proof.HashTreeRootFromBytes(info, data)
+	root, err := proof.HashTreeRoot(info, data)
 	require.NoError(t, err)
 
 	expected, err := voluntaryExit.HashTreeRoot()
@@ -145,7 +113,7 @@ func TestHashTreeRootFromBytes_Container(t *testing.T) {
 	hexData := hex.EncodeToString(data)
 	t.Logf("SSZ data: %s", hexData)
 
-	root, err := proof.HashTreeRootFromBytes(info, data)
+	root, err := proof.HashTreeRoot(info, data)
 	require.NoError(t, err)
 	t.Logf("HashTreeRoot: %x", root[:])
 
@@ -219,7 +187,7 @@ func TestHashTreeRootFromBytes_Container_IndexedAttestationElectra(t *testing.T)
 	require.NoError(t, err)
 	assert.NotNil(t, info, "Expected non-nil SSZ info")
 
-	hashTreeRoot, err := proof.HashTreeRootFromBytes(info, marshalledIndexedAtt)
+	hashTreeRoot, err := proof.HashTreeRoot(info, marshalledIndexedAtt)
 	require.NoError(t, err)
 
 	expectedHashTreeRoot, err := indexedAtt.HashTreeRoot()
@@ -307,7 +275,7 @@ func TestHashTreeRootFromBytes_ListOfContainers(t *testing.T) {
 	data := []byte("0x12340000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000056780000000000000000000000000000000000000000000000000000000000000900000000000000000b000000000000000c000000000000000d000000000000000e0000000000000015160000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000017180000000000000000000000000000000000000000000000000000000000001300000000000000011500000000000000160000000000000017000000000000001800000000000000")
 	t.Logf("SSZ data: %x", data)
 
-	root, err := proof.HashTreeRootFromBytes(info, data)
+	root, err := proof.HashTreeRoot(info, data)
 	require.NoError(t, err)
 	t.Logf("HashTreeRoot: %x", root[:])
 
