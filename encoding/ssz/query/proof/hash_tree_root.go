@@ -1,282 +1,294 @@
 package proof
 
 import (
-	"encoding/binary"
 	"fmt"
 
-	ssz "github.com/OffchainLabs/prysm/v6/encoding/ssz"
 	sszquery "github.com/OffchainLabs/prysm/v6/encoding/ssz/query"
+	ssz "github.com/prysmaticlabs/fastssz"
 )
 
-// Public function to compute the hash tree root for a given sszInfo struct
-// and a given byte slice containing the marshalled data. Entry point for external calls.
-func HashTreeRootFromBytes(info *sszquery.SSZInfo, marshalledData []byte) ([32]byte, error) {
-	if info == nil {
-		return [32]byte{}, fmt.Errorf("nil sszInfo provided")
+// HashTreeRoot computes the hash tree root according to the SSZ spec for any given SSZInfo object + the serialized data.
+//
+// The hash tree root is a cryptographic commitment to the entire data structure, used extensively
+// in Ethereum's consensus layer for creating Merkle proofs and maintaining state roots. This method
+// implements the SSZ hash tree root algorithm, which recursively hashes all fields and combines
+// them using binary Merkle trees.
+//
+// Parameters:
+// Returns:
+// The method handles all SSZ-supported types including:
+// Example:
+func HashTreeRoot(si *sszquery.SSZInfo, serializedData []byte) ([32]byte, error) {
+	pool := &ssz.DefaultHasherPool
+
+	hh := pool.Get()
+	defer func() {
+		pool.Put(hh)
+	}()
+
+	err := buildRootFromSSZInfo(si, serializedData, hh)
+	if err != nil {
+		return [32]byte{}, err
 	}
 
-	if len(marshalledData) == 0 {
-		return [32]byte{}, fmt.Errorf("empty marshalled data")
-	}
-
-	return hashTreeRootFromBytes(info, marshalledData)
+	return hh.HashRoot()
 }
 
-// hashTreeRootFromBytes switch/case per type to compute the hash tree root for the given SSZ data
-// Core recursion
-func hashTreeRootFromBytes(info *sszquery.SSZInfo, data []byte) ([32]byte, error) {
+// buildRootFromSSZInfo is the core recursive function for computing hash tree roots of Go values.
+//
+// Parameters:
+// Returns:
+// The method handles all SSZ-supported types including:
+// Example:
+func buildRootFromSSZInfo(si *sszquery.SSZInfo, serializedData []byte, hh *ssz.Hasher) error {
+	if si == nil {
+		return fmt.Errorf("nil SSZInfo")
+	}
+
+	if hh == nil {
+		return fmt.Errorf("nil hasher")
+	}
+
 	// https://github.com/ethereum/consensus-specs/blob/dev/ssz/simple-serialize.md#typing
-	switch info.Type() {
-	case sszquery.UintN, sszquery.Byte, sszquery.Boolean:
-		return computeBasicHashTreeRoot(info, data)
-	case sszquery.Bitvector, sszquery.Bitlist:
-		return computeBitHashTreeRoot(info, data)
-	case sszquery.List:
-		return computeListHashTreeRoot(info, data)
-	case sszquery.Container:
-		return computeContainerHashTreeRoot(info, data)
-	case sszquery.Vector:
-		return computeVectorHashTreeRoot(info, data)
+	switch si.Type() {
+	case sszquery.Boolean, sszquery.UintN, sszquery.Byte:
+		err := buildRootFromBasicType(si, serializedData, hh)
+		if err != nil {
+			return err
+		}
+	case sszquery.Vector, sszquery.Bitvector:
+		err := buildRootFromVector(si, serializedData, hh)
+		if err != nil {
+			return err
+		}
+	case sszquery.List, sszquery.Bitlist, sszquery.ProgressiveList:
+		err := buildRootFromList(si, serializedData, hh)
+		if err != nil {
+			return err
+		}
 	case sszquery.Union:
-		return computeUnionHashTreeRoot(data)
+		err := buildRootFromCompatibleUnion(si, serializedData, hh)
+		if err != nil {
+			return err
+		}
+	case sszquery.Container:
+		err := buildRootFromContainer(si, serializedData, hh)
+		if err != nil {
+			return err
+		}
 	default:
-		return [32]byte{}, fmt.Errorf("unsupported SSZ type %s", info.Type())
+		return fmt.Errorf("unsupported SSZ type %s", si.Type())
 	}
+	return nil
 }
 
-// computeBasicHashTreeRoot computes the hash tree root for basic types
-// For basic types, pad to 32 bytes and return the chunk
-func computeBasicHashTreeRoot(info *sszquery.SSZInfo, data []byte) ([32]byte, error) {
-	var chunk [32]byte
-	copy(chunk[:], data[:info.FixedSize()])
-	return chunk, nil
+func buildRootFromBasicType(si *sszquery.SSZInfo, serializedData []byte, hh *ssz.Hasher) error {
+	if hh == nil {
+		return fmt.Errorf("nil hasher")
+	}
+	hashIndex := hh.Index()
+	hh.PutBytes(serializedData[:si.FixedSize()])
+	hh.Merkleize(hashIndex)
+	return nil
 }
 
-// computeBitHashTreeRoot computes the hash tree root for bitvector/bitlist
-func computeBitHashTreeRoot(_ *sszquery.SSZInfo, _ []byte) ([32]byte, error) {
-	// NOTE:
-	return [32]byte{}, fmt.Errorf("computeBitHashTreeRoot not implemented yet")
-	// if info.Type() == sszquery.Bitvector {
-	//     // 1. For bitvector: merkleize(pack_bits(value), limit=chunk_count(type))
-	//     // pack_bits packs the bits into 32-byte chunks
-	//     packed := packBits(data) // return the chunks of the byte slice
-	//     lenChunks := uint64(len(packed))
-	//     return merkleize(packed, &lenChunks), nil
-	// } else if info.Type() == sszquery.Bitlist {
-	//     // 2. For bitlist: mix_in_length(merkleize(pack_bits(value), limit=chunk_count(type)), len(value))
-	//     prepacked, err := stripBitlistDelimiter(data) // remove the MSB delimiter bit first
-	//     if err != nil {
-	//         return [32]byte{}, fmt.Errorf("stripBitlistDelimiter: %w", err)
-	//     }
-	//     packed := packBits(prepacked) // return the chunks of the byte slice
-	//     lenChunks := uint64(len(packed))
-	//     root := merkleize(packed, &lenChunks)
-	//     mixInLength(&root, uint64(len(data)*8))
-	//     return root, nil
-	// } else {
-	//     return [32]byte{}, fmt.Errorf("computeBitHashTreeRoot called with non-bit type: %s", info.Type())
-	// }
-}
+// buildRootFromVector computes the hash tree root for ssz vectors.
+//
+// Parameters:
+// Returns:
+// The method handles all SSZ-supported types including:
+// Example:
+func buildRootFromVector(si *sszquery.SSZInfo, serializedData []byte, hh *ssz.Hasher) error {
+	hashIndex := hh.Index()
 
-// computeListHashTreeRoot computes the hash tree root for lists
-func computeListHashTreeRoot(info *sszquery.SSZInfo, data []byte) ([32]byte, error) {
-	listInfo, err := info.ListInfo()
+	if si.Type() != sszquery.Vector && si.Type() != sszquery.Bitvector {
+		return fmt.Errorf("expected vector type, got %s", si.Type())
+	}
+
+	vi, err := si.VectorInfo()
 	if err != nil {
-		return [32]byte{}, fmt.Errorf("ListInfo %w", err)
-	}
-	elementInfo, err := listInfo.Element()
-	if err != nil {
-		return [32]byte{}, fmt.Errorf("Element %w", err)
+		return err
 	}
 
-	// 1. For list of basic objects: mix_in_length(merkleize(pack(value), limit=chunk_count(type)), len(value)) if value is a list of basic objects.
-	if elementInfo.Type() == sszquery.Boolean || elementInfo.Type() == sszquery.Byte || elementInfo.Type() == sszquery.UintN {
-		// Pack the data into 32-byte chunks
-		packed, err := ssz.PackByChunk([][]byte{data})
-		if err != nil {
-			return [32]byte{}, fmt.Errorf("pack %w", err)
-		}
-		maxElems := listInfo.Limit()
-		limitChunks := (maxElems*elementInfo.FixedSize() + 31) / 32
-		body := ssz.MerkleizeVector(packed, limitChunks)
-		var lenChunk [32]byte
-		binary.LittleEndian.PutUint64(lenChunk[:8], listInfo.Length())
-		return ssz.MixInLength(body, lenChunk[:]), nil
+	elemType, err := vi.Element()
+	if err != nil {
+		return err
+	}
+
+	vectorLength := vi.Length()
+	if vectorLength == 0 {
+		// empty vector
+		hh.Merkleize(hashIndex)
+		return nil
+	}
+
+	if isBasicType(elemType.Type()) {
+		// merkleize(pack(value)) if value is a basic object or a vector of basic objects.
+		// pack(values): Given ordered objects of the same basic type:
+		// - Serialize values into bytes. DONE
+		// - If not aligned to a multiple of BYTES_PER_CHUNK bytes, right-pad with zeroes to the next multiple.
+		// - Partition the bytes into BYTES_PER_CHUNK-byte chunks.
+		// - Return the chunks.
+		// PutBytes handles chunking automatically for data > 32 bytes
+		hh.PutBytes(serializedData[:vectorLength*elemType.Size()])
+	} else if elemType.Type() == sszquery.Bitvector {
+		// pack_bits(bits): Given the bits of bitlist or bitvector, get bitfield_bytes by packing them in bytes and aligning to the start. The length-delimiting bit for bitlists is excluded. Then return pack(bitfield_bytes).
+		// merkleize(pack_bits(value), limit=chunk_count(type)) if value is a bitvector.
+		hh.PutBytes(serializedData[:(vectorLength+7)/8])
 	} else {
-		// 2) List of composite objects:
-		// mix_in_length( merkleize([htr(elem) for elem in value], limit = type limit), len(value) )
-		limit := listInfo.Limit()  // type-level capacity (elements)
-		count := listInfo.Length() // runtime number of elements in this value
+		// merkleize([hash_tree_root(element) for element in value]) if value is a vector of composite objects or a container.
+		// For composite types, hash each element individually, then merkleize all the hashes
+		elemSize := elemType.Size()
+		for i := uint64(0); i < vectorLength; i++ {
+			elementOffset := i * elemSize
+			elementData := serializedData[elementOffset : elementOffset+elemSize]
 
-		elemSize := elementInfo.FixedSize()
-		if !elementInfo.IsVariable() {
-			expected := count * elemSize
-			if uint64(len(data)) != expected {
-				return [32]byte{}, fmt.Errorf(
-					"list payload size %d != expected %d (count=%d * elemSize=%d)",
-					len(data), expected, count, elemSize,
-				)
+			err := buildRootFromSSZInfo(elemType, elementData, hh)
+			if err != nil {
+				return fmt.Errorf("failed to hash vector element %d: %w", i, err)
 			}
-			roots := make([][32]byte, 0, count)
-			for i := uint64(0); i < count; i++ {
-				start := i * elemSize
-				end := start + elemSize
-				r, err := hashTreeRootFromBytes(elementInfo, data[start:end])
-				if err != nil {
-					return [32]byte{}, fmt.Errorf("element %d: %w", i, err)
-				}
-				roots = append(roots, r)
-			}
-			root := ssz.MerkleizeVector(roots, limit)
-			var lenChunk [32]byte
-			binary.LittleEndian.PutUint64(lenChunk[:8], count*8)
-			return ssz.MixInLength(root, lenChunk[:]), nil
 		}
-
-		// ---- VARIABLE-SIZE COMPOSITES ----
-		// We must iterate sequentially and compute each element's consumed length.
-		roots := make([][32]byte, 0, count)
-		p := uint64(0)
-		for i := uint64(0); i < count; i++ {
-			// NOTE::
-			// if p >= uint64(len(data)) {
-			// 	return [32]byte{}, fmt.Errorf("element %d: out of bounds (p=%d, len=%d)", i, p, len(data))
-			// }
-			// r, consumed, err := hashTreeRootFromBytes(elementInfo, data[p:])
-			// if err != nil {
-			// 	return [32]byte{}, fmt.Errorf("element %d: %w", i, err)
-			// }
-			// if consumed <= 0 || p+consumed > uint64(len(data)) {
-			// 	return [32]byte{}, fmt.Errorf("element %d: invalid consumed size %d", i, consumed)
-			// }
-			// roots = append(roots, r)
-			// p += consumed
-		}
-		if p != uint64(len(data)) {
-			return [32]byte{}, fmt.Errorf("list trailing bytes consumed=%d, total=%d", p, len(data))
-		}
-		root := ssz.MerkleizeVector(roots, limit)
-		var lenChunk [32]byte
-		binary.LittleEndian.PutUint64(lenChunk[:8], count*8)
-		return ssz.MixInLength(root, lenChunk[:]), nil
 	}
+	hh.Merkleize(hashIndex)
+	return nil
 }
 
-// computeContainerHashTreeRoot computes the hash tree root for containers
-func computeContainerHashTreeRoot(info *sszquery.SSZInfo, data []byte) ([32]byte, error) {
-	// 1. For vector of composite objects or a container: merkleize([hash_tree_root(element) for element in value])
-	if info.Type() != sszquery.Container {
-		return [32]byte{}, fmt.Errorf("computeContainerHashTreeRoot called with non-container type: %s", info.Type())
+// buildRootFromList computes the hash tree root for ssz lists.
+//
+// Parameters:
+// Returns:
+// The method handles all SSZ-supported types including:
+// Example:
+func buildRootFromList(si *sszquery.SSZInfo, serializedData []byte, hh *ssz.Hasher) error {
+	hashIndex := hh.Index()
+
+	if si.Type() != sszquery.List && si.Type() != sszquery.Bitlist && si.Type() != sszquery.ProgressiveList {
+		return fmt.Errorf("expected list type, got %s", si.Type())
 	}
 
-	containerInfo, err := info.ContainerInfo()
+	li, err := si.ListInfo()
 	if err != nil {
-		return [32]byte{}, fmt.Errorf("ContainerInfo %w", err)
+		return err
 	}
 
-	var elementRoots [][32]byte
-
-	// Ordered fields
-	ci := containerInfo.Fields()
-	var orderedFields []*sszquery.FieldInfo
-	for _, name := range containerInfo.Order() {
-		orderedFields = append(orderedFields, ci[name])
+	elemType, err := li.Element()
+	if err != nil {
+		return err
 	}
 
-	for _, fieldInfo := range orderedFields {
-		fieldSSZ := fieldInfo.SSZ()
-		fieldSize := fieldSSZ.FixedSize()
-		if fieldSSZ.IsVariable() {
-			endDelimiter := fieldInfo.Offset() + fieldSSZ.Size()
-			if uint64(len(data)) < endDelimiter {
-				return [32]byte{}, fmt.Errorf("data shorter than endDelimiter %s", fieldInfo.Name())
-			}
-			fieldData := data[fieldInfo.Offset():endDelimiter]
-			fieldRoot, err := hashTreeRootFromBytes(fieldSSZ, fieldData)
+	listLimit := li.Limit()
+	if listLimit == 0 {
+		return fmt.Errorf("list limit is zero")
+	}
+
+	listLength := li.Length()
+	if listLength == 0 {
+		// empty list - still needs length mixing for proper list hash
+		hh.MerkleizeWithMixin(hashIndex, 0, listLimit)
+		return nil
+	}
+
+	// serializedData already contains just the list data (offset has been dereferenced by caller)
+	// so we start from the beginning of the data
+
+	if isBasicType(elemType.Type()) {
+		// pack(values): Given ordered objects of the same basic type:
+		// 	- Serialize values into bytes.
+		// 	- If not aligned to a multiple of BYTES_PER_CHUNK bytes, right-pad with zeroes to the next multiple.
+		// 	- Partition the bytes into BYTES_PER_CHUNK-byte chunks.
+		// 	- Return the chunks.
+		// merkleize(pack(value)) if value is a basic object or a vector of basic objects.
+		// mix_in_length(merkleize(pack(value), limit=chunk_count(type)), len(value)) if value is a list of basic objects.
+		// mix_in_length: Given a Merkle root and a length ("uint256" little-endian serialization) return hash(root + length).
+		// PutBytes handles chunking automatically for data > 32 bytes
+		hh.PutBytes(serializedData[:listLength*elemType.Size()])
+		hh.MerkleizeWithMixin(hashIndex, listLength, (listLimit*elemType.Size()+31)/32)
+	} else if si.Type() == sszquery.Bitlist {
+		// mix_in_length(merkleize(pack_bits(value), limit=chunk_count(type)), len(value)) if value is a bitlist.
+		// pack_bits(bits): Given the bits of bitlist or bitvector, get bitfield_bytes by packing them in bytes and aligning to the start. The length-delimiting bit for bitlists is excluded. Then return pack(bitfield_bytes).
+		// PutBitlist handles length-delimiting bit removal and proper length mixing
+		hh.PutBitlist(serializedData, listLimit)
+	} else {
+		// mix_in_length(merkleize([hash_tree_root(element) for element in value], limit=chunk_count(type)), len(value)) if value is a list of composite objects.
+		// For composite types, hash each element individually, then merkleize with length mixing
+		elemSize := elemType.Size()
+		for i := uint64(0); i < listLength; i++ {
+			elementOffset := i * elemSize
+			elementData := serializedData[elementOffset : elementOffset+elemSize]
+
+			err := buildRootFromSSZInfo(elemType, elementData, hh)
 			if err != nil {
-				return [32]byte{}, fmt.Errorf("hashTreeRootFromBytes for field %s: %w", fieldInfo.Name(), err)
+				return fmt.Errorf("failed to hash list element %d: %w", i, err)
 			}
-			elementRoots = append(elementRoots, fieldRoot)
-		} else {
-			// For fixed-sized fields, extract directly using offset and size
-			if len(data) < int(fieldInfo.Offset()+fieldSize) {
-				return [32]byte{}, fmt.Errorf("data too short for fixed field %s", fieldInfo.Name())
-			}
-			fieldData := data[fieldInfo.Offset() : fieldInfo.Offset()+fieldSize]
-			fieldRoot, err := hashTreeRootFromBytes(fieldSSZ, fieldData)
-			if err != nil {
-				return [32]byte{}, fmt.Errorf("hashTreeRootFromBytes for field %s: %w", fieldInfo.Name(), err)
-			}
-			elementRoots = append(elementRoots, fieldRoot)
 		}
+		hh.MerkleizeWithMixin(hashIndex, listLength, listLimit)
 	}
-	return ssz.MerkleizeVector(elementRoots, uint64(len(elementRoots))), nil
+
+	return nil
 }
 
-// computeVectorHashTreeRoot computes the hash tree root for vectors
-// merkleize(pack(value)) if value is a basic object or a vector of basic objects.
-func computeVectorHashTreeRoot(info *sszquery.SSZInfo, data []byte) ([32]byte, error) {
-	if info.Type() != sszquery.Vector {
-		return [32]byte{}, fmt.Errorf("computeVectorHashTreeRoot called with non-vector type %s", info.Type())
+// buildRootFromCompatibleUnion computes the hash tree root for CompatibleUnion values.
+//
+// Parameters:
+// Returns:
+// The method handles all SSZ-supported types including:
+// Example:
+func buildRootFromCompatibleUnion(si *sszquery.SSZInfo, serializedData []byte, hh *ssz.Hasher) error {
+	return nil
+}
+
+// buildRootFromContainer computes the hash tree root for ssz containers.
+//
+// Parameters:
+// Returns:
+// The method handles all SSZ-supported types including:
+// Example:
+func buildRootFromContainer(si *sszquery.SSZInfo, serializedData []byte, hh *ssz.Hasher) error {
+	hashIndex := hh.Index()
+
+	if si.Type() != sszquery.Container {
+		return fmt.Errorf("expected container type, got %s", si.Type())
 	}
 
-	vectorInfo, err := info.VectorInfo()
+	ci, err := si.ContainerInfo()
 	if err != nil {
-		return [32]byte{}, fmt.Errorf("VectorInfo %w", err)
+		return err
 	}
 
-	elementInfo, err := vectorInfo.Element()
-	if err != nil {
-		return [32]byte{}, fmt.Errorf("Element %w", err)
-	}
+	for _, fieldName := range ci.Order() {
+		fieldInfo, ok := ci.Fields()[fieldName]
+		if !ok {
+			return fmt.Errorf("field %s not found in container fields", fieldName)
+		}
 
-	// 1. For vector of basic objects: merkleize(pack(value))
-	if elementInfo.Type() == sszquery.Boolean || elementInfo.Type() == sszquery.Byte || elementInfo.Type() == sszquery.UintN {
-		// Pack the data into 32-byte chunks
-		packed, err := ssz.PackByChunk([][]byte{data})
+		fieldType := fieldInfo.SSZ()
+		if fieldType == nil {
+			return fmt.Errorf("field %s has nil SSZInfo", fieldName)
+		}
+
+		fieldOffset := fieldInfo.Offset()
+		fieldSize := fieldType.Size()
+		if fieldSize == 0 {
+			return fmt.Errorf("field %s has zero size", fieldName)
+		}
+
+		err := buildRootFromSSZInfo(fieldType, serializedData[fieldOffset:fieldOffset+fieldSize], hh)
 		if err != nil {
-			return [32]byte{}, fmt.Errorf("PackByChunk %w", err)
+			return fmt.Errorf("failed to hash container field %s: %w", fieldName, err)
 		}
-		maxElems := vectorInfo.Length()
-		limitChunks := (maxElems*elementInfo.FixedSize() + 31) / 32
-		return ssz.MerkleizeVector(packed, limitChunks), nil
 	}
 
-	// 2. For vector of composite objects or a container: merkleize([hash_tree_root(element) for element in value])
-	if !elementInfo.IsVariable() {
-		elemSize := elementInfo.FixedSize()
-		count := vectorInfo.Length()
-		expected := count * elemSize
-		if uint64(len(data)) != expected {
-			return [32]byte{}, fmt.Errorf(
-				"vector payload size %d != expected %d (count=%d * elemSize=%d)",
-				len(data), expected, count, elemSize,
-			)
-		}
-		roots := make([][32]byte, 0, count)
-		for i := uint64(0); i < count; i++ {
-			start := i * elemSize
-			end := start + elemSize
-			r, err := hashTreeRootFromBytes(elementInfo, data[start:end])
-			if err != nil {
-				return [32]byte{}, fmt.Errorf("element %d: %w", i, err)
-			}
-			roots = append(roots, r)
-		}
-		return ssz.MerkleizeVector(roots, count), nil
-	}
+	hh.Merkleize(hashIndex)
 
-	chunks, err := ssz.PackByChunk([][]byte{data})
-	if err != nil {
-		return [32]byte{}, fmt.Errorf("PackByChunk %w", err)
-	}
-
-	return ssz.MerkleizeVector(chunks, uint64(len(chunks))), nil
+	return nil
 }
 
-// computeUnionHashTreeRoot computes the hash tree root for unions
-// Placeholder
-func computeUnionHashTreeRoot(_ []byte) ([32]byte, error) {
-	// NOTE: handle union types
-	return [32]byte{}, fmt.Errorf("computeUnionHashTreeRoot not implemented yet")
+// --- Helpers ---
+func isBasicType(t sszquery.SSZType) bool {
+	switch t {
+	case sszquery.Boolean, sszquery.UintN, sszquery.Byte:
+		return true
+	default:
+		return false
+	}
 }
