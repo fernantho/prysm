@@ -83,7 +83,6 @@ func buildRootFromSSZInfo(si *sszquery.SSZInfo, serializedData []byte, hh *ssz.H
 }
 
 func buildRootFromBasicType(si *sszquery.SSZInfo, serializedData []byte, hh *ssz.Hasher) error {
-
 	if hh == nil {
 		return fmt.Errorf("nil hasher")
 	}
@@ -189,9 +188,10 @@ func buildRootFromList(si *sszquery.SSZInfo, serializedData []byte, hh *ssz.Hash
 		return nil
 	}
 
-	offset := si.FixedSize()
+	// serializedData already contains just the list data (offset has been dereferenced by caller)
+	// so we start from the beginning of the data
 
-	if isBasicType(si.Type()) {
+	if isBasicType(elemType.Type()) {
 		// pack(values): Given ordered objects of the same basic type:
 		// 	- Serialize values into bytes.
 		// 	- If not aligned to a multiple of BYTES_PER_CHUNK bytes, right-pad with zeroes to the next multiple.
@@ -201,19 +201,19 @@ func buildRootFromList(si *sszquery.SSZInfo, serializedData []byte, hh *ssz.Hash
 		// mix_in_length(merkleize(pack(value), limit=chunk_count(type)), len(value)) if value is a list of basic objects.
 		// mix_in_length: Given a Merkle root and a length ("uint256" little-endian serialization) return hash(root + length).
 		// PutBytes handles chunking automatically for data > 32 bytes
-		hh.PutBytes(serializedData[offset : offset+listLength*elemType.Size()])
+		hh.PutBytes(serializedData[:listLength*elemType.Size()])
 		hh.MerkleizeWithMixin(hashIndex, listLength, (listLimit*elemType.Size()+31)/32)
 	} else if si.Type() == sszquery.Bitlist {
 		// mix_in_length(merkleize(pack_bits(value), limit=chunk_count(type)), len(value)) if value is a bitlist.
 		// pack_bits(bits): Given the bits of bitlist or bitvector, get bitfield_bytes by packing them in bytes and aligning to the start. The length-delimiting bit for bitlists is excluded. Then return pack(bitfield_bytes).
 		// PutBitlist handles length-delimiting bit removal and proper length mixing
-		hh.PutBitlist(serializedData[offset:], listLimit)
+		hh.PutBitlist(serializedData, listLimit)
 	} else {
 		// mix_in_length(merkleize([hash_tree_root(element) for element in value], limit=chunk_count(type)), len(value)) if value is a list of composite objects.
 		// For composite types, hash each element individually, then merkleize with length mixing
 		elemSize := elemType.Size()
 		for i := uint64(0); i < listLength; i++ {
-			elementOffset := offset + i*elemSize
+			elementOffset := i * elemSize
 			elementData := serializedData[elementOffset : elementOffset+elemSize]
 
 			err := buildRootFromSSZInfo(elemType, elementData, hh)
