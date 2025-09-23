@@ -171,7 +171,12 @@ func buildRootFromList(si *sszquery.SSZInfo, serializedData []byte, hh *ssz.Hash
 		return fmt.Errorf("expected list type, got %s", si.Type())
 	}
 	if si.Type() == sszquery.Bitlist {
-		hh.PutBitlist(serializedData, 2048)
+		bi, err := si.BitlistInfo()
+		if err != nil {
+			return err
+		}
+		bitlistLimit := bi.Limit()
+		hh.PutBitlist(serializedData, bitlistLimit)
 		return nil
 	}
 
