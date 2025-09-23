@@ -106,6 +106,14 @@ func buildRootFromVector(si *sszquery.SSZInfo, serializedData []byte, hh *ssz.Ha
 		return fmt.Errorf("expected vector type, got %s", si.Type())
 	}
 
+	if si.Type() == sszquery.Bitvector {
+		// pack_bits(bits): Given the bits of bitlist or bitvector, get bitfield_bytes by packing them in bytes and aligning to the start. The length-delimiting bit for bitlists is excluded. Then return pack(bitfield_bytes).
+		// merkleize(pack_bits(value), limit=chunk_count(type)) if value is a bitvector.
+		hh.PutBytes(serializedData[:(si.FixedSize())])
+		hh.Merkleize(hashIndex)
+		return nil
+	}
+
 	vi, err := si.VectorInfo()
 	if err != nil {
 		return err
@@ -132,10 +140,6 @@ func buildRootFromVector(si *sszquery.SSZInfo, serializedData []byte, hh *ssz.Ha
 		// - Return the chunks.
 		// PutBytes handles chunking automatically for data > 32 bytes
 		hh.PutBytes(serializedData[:vectorLength*elemType.Size()])
-	} else if elemType.Type() == sszquery.Bitvector {
-		// pack_bits(bits): Given the bits of bitlist or bitvector, get bitfield_bytes by packing them in bytes and aligning to the start. The length-delimiting bit for bitlists is excluded. Then return pack(bitfield_bytes).
-		// merkleize(pack_bits(value), limit=chunk_count(type)) if value is a bitvector.
-		hh.PutBytes(serializedData[:(vectorLength+7)/8])
 	} else {
 		// merkleize([hash_tree_root(element) for element in value]) if value is a vector of composite objects or a container.
 		// For composite types, hash each element individually, then merkleize all the hashes

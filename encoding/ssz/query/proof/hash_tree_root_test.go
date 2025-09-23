@@ -366,3 +366,24 @@ func TestHashTreeRoot_CustomTypes_BitlistContainer(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, expectedHashTreeRoot, hashTreeRoot)
 }
+
+func TestHashTreeRoot_CustomTypes_BitvectorContainer(t *testing.T) {
+	bitvector := []byte{0b10101010, 0b10101010, 0b10101010, 0b10101010}
+	bitvectorContainer := &sszquerypb.BitvectorContainer{
+		BitvectorField: bitvector,
+	}
+
+	info, err := sszquery.AnalyzeObject(bitvectorContainer)
+	require.NoError(t, err)
+	assert.NotNil(t, info, "Expected non-nil SSZ info")
+
+	serializedData, err := ssz.MarshalSSZ(bitvectorContainer)
+	require.NoError(t, err)
+
+	hashTreeRoot, err := proof.HashTreeRoot(info, serializedData)
+	require.NoError(t, err)
+
+	expectedHashTreeRoot, err := bitvectorContainer.HashTreeRoot()
+	require.NoError(t, err)
+	assert.Equal(t, expectedHashTreeRoot, hashTreeRoot)
+}

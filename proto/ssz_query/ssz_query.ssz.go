@@ -846,3 +846,65 @@ func (b *BitlistContainer) HashTreeRootWith(hh *ssz.Hasher) (err error) {
 	hh.Merkleize(indx)
 	return
 }
+
+// MarshalSSZ ssz marshals the BitvectorContainer object
+func (b *BitvectorContainer) MarshalSSZ() ([]byte, error) {
+	return ssz.MarshalSSZ(b)
+}
+
+// MarshalSSZTo ssz marshals the BitvectorContainer object to a target array
+func (b *BitvectorContainer) MarshalSSZTo(buf []byte) (dst []byte, err error) {
+	dst = buf
+
+	// Field (0) 'BitvectorField'
+	if size := len(b.BitvectorField); size != 4 {
+		err = ssz.ErrBytesLengthFn("--.BitvectorField", size, 4)
+		return
+	}
+	dst = append(dst, b.BitvectorField...)
+
+	return
+}
+
+// UnmarshalSSZ ssz unmarshals the BitvectorContainer object
+func (b *BitvectorContainer) UnmarshalSSZ(buf []byte) error {
+	var err error
+	size := uint64(len(buf))
+	if size != 4 {
+		return ssz.ErrSize
+	}
+
+	// Field (0) 'BitvectorField'
+	if cap(b.BitvectorField) == 0 {
+		b.BitvectorField = make([]byte, 0, len(buf[0:4]))
+	}
+	b.BitvectorField = append(b.BitvectorField, buf[0:4]...)
+
+	return err
+}
+
+// SizeSSZ returns the ssz encoded size in bytes for the BitvectorContainer object
+func (b *BitvectorContainer) SizeSSZ() (size int) {
+	size = 4
+	return
+}
+
+// HashTreeRoot ssz hashes the BitvectorContainer object
+func (b *BitvectorContainer) HashTreeRoot() ([32]byte, error) {
+	return ssz.HashWithDefaultHasher(b)
+}
+
+// HashTreeRootWith ssz hashes the BitvectorContainer object with a hasher
+func (b *BitvectorContainer) HashTreeRootWith(hh *ssz.Hasher) (err error) {
+	indx := hh.Index()
+
+	// Field (0) 'BitvectorField'
+	if size := len(b.BitvectorField); size != 4 {
+		err = ssz.ErrBytesLengthFn("--.BitvectorField", size, 4)
+		return
+	}
+	hh.PutBytes(b.BitvectorField)
+
+	hh.Merkleize(indx)
+	return
+}

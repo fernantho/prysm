@@ -113,3 +113,15 @@ message BitlistContainer {
   ];
 }
 
+// BitvectorContainer - container with only a bitvector for testing bitvector hash tree root computation
+// Tests: Bitvector SSZ serialization, hash tree root for bitvectors, container with single bitvector field
+message BitvectorContainer {
+  // Bitvector field - test variable-size bitvector in container
+  // SSZ bitvectors include a length-delimiting bit and use mix_in_length for hash tree root
+    bytes bitvector_field = 1 [
+    (ethereum.eth.ext.ssz_size) = "4",
+    (ethereum.eth.ext.cast_type) =
+        "github.com/prysmaticlabs/go-bitfield.Bitvector64"
+  ];
+}
+
