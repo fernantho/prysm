@@ -167,9 +167,14 @@ func buildRootFromVector(si *sszquery.SSZInfo, serializedData []byte, hh *ssz.Ha
 func buildRootFromList(si *sszquery.SSZInfo, serializedData []byte, hh *ssz.Hasher) error {
 	hashIndex := hh.Index()
 
-	if si.Type() != sszquery.List && si.Type() != sszquery.Bitlist && si.Type() != sszquery.ProgressiveList {
-		return fmt.Errorf("expected list type, got %s", si.Type())
+	if si.Type() != sszquery.List && si.Type() != sszquery.Bitlist {
+		if si.Type() != sszquery.ProgressiveList {
+			return fmt.Errorf("progressive list root is yet to be implemented")
+		} else {
+			return fmt.Errorf("expected list type, got %s", si.Type())
+		}
 	}
+
 	if si.Type() == sszquery.Bitlist {
 		bi, err := si.BitlistInfo()
 		if err != nil {
