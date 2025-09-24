@@ -1008,3 +1008,287 @@ func (b *BasicTypeList) HashTreeRootWith(hh *ssz.Hasher) (err error) {
 	hh.Merkleize(indx)
 	return
 }
+
+// MarshalSSZ ssz marshals the FixedNestedContainersList object
+func (f *FixedNestedContainersList) MarshalSSZ() ([]byte, error) {
+	return ssz.MarshalSSZ(f)
+}
+
+// MarshalSSZTo ssz marshals the FixedNestedContainersList object to a target array
+func (f *FixedNestedContainersList) MarshalSSZTo(buf []byte) (dst []byte, err error) {
+	dst = buf
+	offset := int(4)
+
+	// Offset (0) 'FixedNestedContainers'
+	dst = ssz.WriteOffset(dst, offset)
+	offset += len(f.FixedNestedContainers) * 40
+
+	// Field (0) 'FixedNestedContainers'
+	if size := len(f.FixedNestedContainers); size > 1099511627776 {
+		err = ssz.ErrListTooBigFn("--.FixedNestedContainers", size, 1099511627776)
+		return
+	}
+	for ii := 0; ii < len(f.FixedNestedContainers); ii++ {
+		if dst, err = f.FixedNestedContainers[ii].MarshalSSZTo(dst); err != nil {
+			return
+		}
+	}
+
+	return
+}
+
+// UnmarshalSSZ ssz unmarshals the FixedNestedContainersList object
+func (f *FixedNestedContainersList) UnmarshalSSZ(buf []byte) error {
+	var err error
+	size := uint64(len(buf))
+	if size < 4 {
+		return ssz.ErrSize
+	}
+
+	tail := buf
+	var o0 uint64
+
+	// Offset (0) 'FixedNestedContainers'
+	if o0 = ssz.ReadOffset(buf[0:4]); o0 > size {
+		return ssz.ErrOffset
+	}
+
+	if o0 != 4 {
+		return ssz.ErrInvalidVariableOffset
+	}
+
+	// Field (0) 'FixedNestedContainers'
+	{
+		buf = tail[o0:]
+		num, err := ssz.DivideInt2(len(buf), 40, 1099511627776)
+		if err != nil {
+			return err
+		}
+		f.FixedNestedContainers = make([]*FixedNestedContainer, num)
+		for ii := 0; ii < num; ii++ {
+			if f.FixedNestedContainers[ii] == nil {
+				f.FixedNestedContainers[ii] = new(FixedNestedContainer)
+			}
+			if err = f.FixedNestedContainers[ii].UnmarshalSSZ(buf[ii*40 : (ii+1)*40]); err != nil {
+				return err
+			}
+		}
+	}
+	return err
+}
+
+// SizeSSZ returns the ssz encoded size in bytes for the FixedNestedContainersList object
+func (f *FixedNestedContainersList) SizeSSZ() (size int) {
+	size = 4
+
+	// Field (0) 'FixedNestedContainers'
+	size += len(f.FixedNestedContainers) * 40
+
+	return
+}
+
+// HashTreeRoot ssz hashes the FixedNestedContainersList object
+func (f *FixedNestedContainersList) HashTreeRoot() ([32]byte, error) {
+	return ssz.HashWithDefaultHasher(f)
+}
+
+// HashTreeRootWith ssz hashes the FixedNestedContainersList object with a hasher
+func (f *FixedNestedContainersList) HashTreeRootWith(hh *ssz.Hasher) (err error) {
+	indx := hh.Index()
+
+	// Field (0) 'FixedNestedContainers'
+	{
+		subIndx := hh.Index()
+		num := uint64(len(f.FixedNestedContainers))
+		if num > 1099511627776 {
+			err = ssz.ErrIncorrectListSize
+			return
+		}
+		for _, elem := range f.FixedNestedContainers {
+			if err = elem.HashTreeRootWith(hh); err != nil {
+				return
+			}
+		}
+		hh.MerkleizeWithMixin(subIndx, num, 1099511627776)
+	}
+
+	hh.Merkleize(indx)
+	return
+}
+
+// MarshalSSZ ssz marshals the BasicTypeVector object
+func (b *BasicTypeVector) MarshalSSZ() ([]byte, error) {
+	return ssz.MarshalSSZ(b)
+}
+
+// MarshalSSZTo ssz marshals the BasicTypeVector object to a target array
+func (b *BasicTypeVector) MarshalSSZTo(buf []byte) (dst []byte, err error) {
+	dst = buf
+
+	// Field (0) 'FieldVectorUint64'
+	if size := len(b.FieldVectorUint64); size != 24 {
+		err = ssz.ErrVectorLengthFn("--.FieldVectorUint64", size, 24)
+		return
+	}
+	for ii := 0; ii < 24; ii++ {
+		dst = ssz.MarshalUint64(dst, b.FieldVectorUint64[ii])
+	}
+
+	return
+}
+
+// UnmarshalSSZ ssz unmarshals the BasicTypeVector object
+func (b *BasicTypeVector) UnmarshalSSZ(buf []byte) error {
+	var err error
+	size := uint64(len(buf))
+	if size != 192 {
+		return ssz.ErrSize
+	}
+
+	// Field (0) 'FieldVectorUint64'
+	b.FieldVectorUint64 = ssz.ExtendUint64(b.FieldVectorUint64, 24)
+	for ii := 0; ii < 24; ii++ {
+		b.FieldVectorUint64[ii] = ssz.UnmarshallUint64(buf[0:192][ii*8 : (ii+1)*8])
+	}
+
+	return err
+}
+
+// SizeSSZ returns the ssz encoded size in bytes for the BasicTypeVector object
+func (b *BasicTypeVector) SizeSSZ() (size int) {
+	size = 192
+	return
+}
+
+// HashTreeRoot ssz hashes the BasicTypeVector object
+func (b *BasicTypeVector) HashTreeRoot() ([32]byte, error) {
+	return ssz.HashWithDefaultHasher(b)
+}
+
+// HashTreeRootWith ssz hashes the BasicTypeVector object with a hasher
+func (b *BasicTypeVector) HashTreeRootWith(hh *ssz.Hasher) (err error) {
+	indx := hh.Index()
+
+	// Field (0) 'FieldVectorUint64'
+	{
+		if size := len(b.FieldVectorUint64); size != 24 {
+			err = ssz.ErrVectorLengthFn("--.FieldVectorUint64", size, 24)
+			return
+		}
+		subIndx := hh.Index()
+		for _, i := range b.FieldVectorUint64 {
+			hh.AppendUint64(i)
+		}
+		hh.Merkleize(subIndx)
+	}
+
+	hh.Merkleize(indx)
+	return
+}
+
+// MarshalSSZ ssz marshals the FixedNestedContainerVector object
+func (f *FixedNestedContainerVector) MarshalSSZ() ([]byte, error) {
+	return ssz.MarshalSSZ(f)
+}
+
+// MarshalSSZTo ssz marshals the FixedNestedContainerVector object to a target array
+func (f *FixedNestedContainerVector) MarshalSSZTo(buf []byte) (dst []byte, err error) {
+	dst = buf
+	offset := int(4)
+
+	// Offset (0) 'Validator'
+	dst = ssz.WriteOffset(dst, offset)
+	offset += len(f.Validator) * 40
+
+	// Field (0) 'Validator'
+	if size := len(f.Validator); size > 4 {
+		err = ssz.ErrListTooBigFn("--.Validator", size, 4)
+		return
+	}
+	for ii := 0; ii < len(f.Validator); ii++ {
+		if dst, err = f.Validator[ii].MarshalSSZTo(dst); err != nil {
+			return
+		}
+	}
+
+	return
+}
+
+// UnmarshalSSZ ssz unmarshals the FixedNestedContainerVector object
+func (f *FixedNestedContainerVector) UnmarshalSSZ(buf []byte) error {
+	var err error
+	size := uint64(len(buf))
+	if size < 4 {
+		return ssz.ErrSize
+	}
+
+	tail := buf
+	var o0 uint64
+
+	// Offset (0) 'Validator'
+	if o0 = ssz.ReadOffset(buf[0:4]); o0 > size {
+		return ssz.ErrOffset
+	}
+
+	if o0 != 4 {
+		return ssz.ErrInvalidVariableOffset
+	}
+
+	// Field (0) 'Validator'
+	{
+		buf = tail[o0:]
+		num, err := ssz.DivideInt2(len(buf), 40, 4)
+		if err != nil {
+			return err
+		}
+		f.Validator = make([]*FixedNestedContainer, num)
+		for ii := 0; ii < num; ii++ {
+			if f.Validator[ii] == nil {
+				f.Validator[ii] = new(FixedNestedContainer)
+			}
+			if err = f.Validator[ii].UnmarshalSSZ(buf[ii*40 : (ii+1)*40]); err != nil {
+				return err
+			}
+		}
+	}
+	return err
+}
+
+// SizeSSZ returns the ssz encoded size in bytes for the FixedNestedContainerVector object
+func (f *FixedNestedContainerVector) SizeSSZ() (size int) {
+	size = 4
+
+	// Field (0) 'Validator'
+	size += len(f.Validator) * 40
+
+	return
+}
+
+// HashTreeRoot ssz hashes the FixedNestedContainerVector object
+func (f *FixedNestedContainerVector) HashTreeRoot() ([32]byte, error) {
+	return ssz.HashWithDefaultHasher(f)
+}
+
+// HashTreeRootWith ssz hashes the FixedNestedContainerVector object with a hasher
+func (f *FixedNestedContainerVector) HashTreeRootWith(hh *ssz.Hasher) (err error) {
+	indx := hh.Index()
+
+	// Field (0) 'Validator'
+	{
+		subIndx := hh.Index()
+		num := uint64(len(f.Validator))
+		if num > 4 {
+			err = ssz.ErrIncorrectListSize
+			return
+		}
+		for _, elem := range f.Validator {
+			if err = elem.HashTreeRootWith(hh); err != nil {
+				return
+			}
+		}
+		hh.MerkleizeWithMixin(subIndx, num, 4)
+	}
+
+	hh.Merkleize(indx)
+	return
+}

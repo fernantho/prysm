@@ -197,90 +197,6 @@ func TestHashTreeRoot_Container_IndexedAttestationElectra(t *testing.T) {
 	assert.Equal(t, expectedHashTreeRoot, hashTreeRoot, "Hash tree roots should match")
 }
 
-func TestHashTreeRoot_ListOfContainers(t *testing.T) {
-	// Validators
-	// [
-	// 	{
-	// 		pubkey: "0x123400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000" ,
-	// 		withdrawal_credentials: "0x5678000000000000000000000000000000000000000000000000000000000000",
-	// 		effective_balance: "9",
-	// 		slashed: false,
-	// 		activation_eligibility_epoch: "11",
-	// 		activation_epoch: "12",
-	// 		exit_epoch: "13",
-	// 		withdrawable_epoch: "14"
-	// 	},
-	// 	{
-	// 		pubkey: "0x151600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-	// 		withdrawal_credentials: "0x1718000000000000000000000000000000000000000000000000000000000000",
-	// 		effective_balance: "19",
-	// 		slashed: true,
-	// 		activation_eligibility_epoch: "21",
-	// 		activation_epoch: "22",
-	// 		exit_epoch: "23",
-	// 		withdrawable_epoch: "24"
-	// 	}
-	// ]
-	// SSZ serialization: 0x12340000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000056780000000000000000000000000000000000000000000000000000000000000900000000000000000b000000000000000c000000000000000d000000000000000e0000000000000015160000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000017180000000000000000000000000000000000000000000000000000000000001300000000000000011500000000000000160000000000000017000000000000001800000000000000
-	// Hash Tree Root: 0x962288f21c75709e133fdb585e1094fd434155702111adf3bc949e2f18f556d0
-	// validators := &ValidatorList{
-	// 	Validators: []*ethpb.Validator{
-	// 		{
-	// 			PublicKey: func() []byte {
-	// 				// 48 bytes (96 hex chars)
-	// 				b, _ := hexutil.Decode("0x123400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
-	// 				return b
-	// 			}(),
-	// 			WithdrawalCredentials: func() []byte {
-	// 				// 32 bytes (64 hex chars)
-	// 				b, _ := hexutil.Decode("0x5678000000000000000000000000000000000000000000000000000000000000")
-	// 				return b
-	// 			}(),
-	// 			EffectiveBalance:           9,
-	// 			Slashed:                    false,
-	// 			ActivationEligibilityEpoch: 11,
-	// 			ActivationEpoch:            12,
-	// 			ExitEpoch:                  13,
-	// 			WithdrawableEpoch:          14,
-	// 		},
-	// 		{
-	// 			PublicKey: func() []byte {
-	// 				// 48 bytes (96 hex chars) — la anterior cadena estaba incompleta
-	// 				b, _ := hexutil.Decode("0x151600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
-	// 				return b
-	// 			}(),
-	// 			WithdrawalCredentials: func() []byte {
-	// 				// 32 bytes
-	// 				b, _ := hexutil.Decode("0x1718000000000000000000000000000000000000000000000000000000000000")
-	// 				return b
-	// 			}(),
-	// 			EffectiveBalance:           19,
-	// 			Slashed:                    true,
-	// 			ActivationEligibilityEpoch: 21,
-	// 			ActivationEpoch:            22,
-	// 			ExitEpoch:                  23,
-	// 			WithdrawableEpoch:          24,
-	// 		},
-	// 	},
-	// }
-
-	// info, err := sszquery.AnalyzeObject(validators)
-	// require.NoError(t, err)
-	// assert.NotNil(t, info, "Expected non-nil SSZ info")
-
-	// data := []byte("0x12340000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000056780000000000000000000000000000000000000000000000000000000000000900000000000000000b000000000000000c000000000000000d000000000000000e0000000000000015160000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000017180000000000000000000000000000000000000000000000000000000000001300000000000000011500000000000000160000000000000017000000000000001800000000000000")
-	// t.Logf("SSZ data: %x", data)
-
-	// root, err := proof.HashTreeRoot(info, data)
-	// require.NoError(t, err)
-	// t.Logf("HashTreeRoot: %x", root[:])
-
-	// expected := []byte("0x962288f21c75709e133fdb585e1094fd434155702111adf3bc949e2f18f556d0")
-	// t.Logf("Expected:     %x", expected)
-
-	// assert.Equal(t, expected, root)
-}
-
 func TestHashTreeRoot_CustomTypes_FixedNestedContainer(t *testing.T) {
 	info, err := sszquery.AnalyzeObject(new(sszquerypb.FixedNestedContainer))
 	require.NoError(t, err)
@@ -318,7 +234,7 @@ func TestHashTreeRoot_CustomTypes_FixedTestContainer(t *testing.T) {
 				return b
 			}(),
 		},
-		VectorField: []uint64{1, 2, 3, 4},
+		VectorField: []uint64{1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4},
 		TwoDimensionBytesField: [][]byte{
 			func() []byte {
 				b, _ := hexutil.Decode("0x0101010101010101010101010101010101010101010101010101010101010101")
@@ -328,8 +244,32 @@ func TestHashTreeRoot_CustomTypes_FixedTestContainer(t *testing.T) {
 				b, _ := hexutil.Decode("0x0202020202020202020202020202020202020202020202020202020202020202")
 				return b
 			}(),
+			func() []byte {
+				b, _ := hexutil.Decode("0x0303030303030303030303030303030303030303030303030303030303030303")
+				return b
+			}(),
+			func() []byte {
+				b, _ := hexutil.Decode("0x0404040404040404040404040404040404040404040404040404040404040404")
+				return b
+			}(),
+			func() []byte {
+				b, _ := hexutil.Decode("0x0505050505050505050505050505050505050505050505050505050505050505")
+				return b
+			}(),
 		},
-		TrailingField: []byte("hello"),
+		TrailingField: []byte("hellohellohellohellohellohellohellohellohellohellohelloo"),
+		FieldBytes32: func() []byte {
+			b, _ := hexutil.Decode("0x3030303030303030303030303030303030303030303030303030303030303030")
+			return b
+		}(),
+		Bitvector64Field: func() []byte {
+			b, _ := hexutil.Decode("0xAAAAAAAAAAAAAAAA")
+			return b
+		}(),
+		Bitvector512Field: func() []byte {
+			b, _ := hexutil.Decode("0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+			return b
+		}(),
 	}
 
 	info, err := sszquery.AnalyzeObject(testContainer)
@@ -471,5 +411,114 @@ func TestHashTreeRoot_CustomTypes_BasicTypeListContainer(t *testing.T) {
 	t.Logf("Computed HashTreeRoot: %x\n", hashTreeRoot)
 	t.Logf("Expected HashTreeRoot: %x\n", expectedHashTreeRoot)
 
+	assert.Equal(t, expectedHashTreeRoot, hashTreeRoot)
+}
+
+func TestHashTreeRoot_CustomTypes_FixedNestedContainersList(t *testing.T) {
+	containers := []*sszquerypb.FixedNestedContainer{
+		{
+			Value1: 1,
+			Value2: func() []byte {
+				b, _ := hexutil.Decode("0x0101010101010101010101010101010101010101010101010101010101010101")
+				return b
+			}(),
+		},
+		{
+			Value1: 2,
+			Value2: func() []byte {
+				b, _ := hexutil.Decode("0x0202020202020202020202020202020202020202020202020202020202020202")
+				return b
+			}(),
+		},
+	}
+
+	containersList := &sszquerypb.FixedNestedContainersList{
+		FixedNestedContainers: containers,
+	}
+
+	info, err := sszquery.AnalyzeObject(containersList)
+	require.NoError(t, err)
+	assert.NotNil(t, info, "Expected non-nil SSZ info")
+
+	serializedData, err := ssz.MarshalSSZ(containersList)
+	require.NoError(t, err)
+
+	hashTreeRoot, err := proof.HashTreeRoot(info, serializedData)
+	require.NoError(t, err)
+
+	expectedHashTreeRoot, err := containersList.HashTreeRoot()
+	require.NoError(t, err)
+	assert.Equal(t, expectedHashTreeRoot, hashTreeRoot)
+}
+
+func TestHashTreeRoot_CustomTypes_BasicTypeVector(t *testing.T) {
+	vector := []uint64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23}
+	basicTypeVector := &sszquerypb.BasicTypeVector{
+		FieldVectorUint64: vector,
+	}
+
+	info, err := sszquery.AnalyzeObject(basicTypeVector)
+	require.NoError(t, err)
+	assert.NotNil(t, info, "Expected non-nil SSZ info")
+
+	serializedData, err := ssz.MarshalSSZ(basicTypeVector)
+	require.NoError(t, err)
+
+	hashTreeRoot, err := proof.HashTreeRoot(info, serializedData)
+	require.NoError(t, err)
+
+	expectedHashTreeRoot, err := basicTypeVector.HashTreeRoot()
+	require.NoError(t, err)
+	assert.Equal(t, expectedHashTreeRoot, hashTreeRoot)
+}
+
+func TestHashTreeRoot_CustomTypes_FixedNestedContainerVector(t *testing.T) {
+	containers := []*sszquerypb.FixedNestedContainer{
+		{
+			Value1: 1,
+			Value2: func() []byte {
+				b, _ := hexutil.Decode("0x0101010101010101010101010101010101010101010101010101010101010101")
+				return b
+			}(),
+		},
+		{
+			Value1: 2,
+			Value2: func() []byte {
+				b, _ := hexutil.Decode("0x0202020202020202020202020202020202020202020202020202020202020202")
+				return b
+			}(),
+		},
+		{
+			Value1: 3,
+			Value2: func() []byte {
+				b, _ := hexutil.Decode("0x0303030303030303030303030303030303030303030303030303030303030303")
+				return b
+			}(),
+		},
+		{
+			Value1: 4,
+			Value2: func() []byte {
+				b, _ := hexutil.Decode("0x0404040404040404040404040404040404040404040404040404040404040404")
+				return b
+			}(),
+		},
+	}
+
+	containersVector := &sszquerypb.FixedNestedContainerVector{
+		Validator: containers,
+	}
+
+	info, err := sszquery.AnalyzeObject(containersVector)
+	require.NoError(t, err)
+	assert.NotNil(t, info, "Expected non-nil SSZ info")
+
+	serializedData, err := ssz.MarshalSSZ(containersVector)
+	require.NoError(t, err)
+
+	hashTreeRoot, err := proof.HashTreeRoot(info, serializedData)
+	require.NoError(t, err)
+
+	expectedHashTreeRoot, err := containersVector.HashTreeRoot()
+	require.NoError(t, err)
 	assert.Equal(t, expectedHashTreeRoot, hashTreeRoot)
 }

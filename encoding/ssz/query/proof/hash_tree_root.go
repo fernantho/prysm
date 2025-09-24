@@ -208,9 +208,7 @@ func buildRootFromList(si *sszquery.SSZInfo, serializedData []byte, hh *ssz.Hash
 		// empty list - still needs length mixing for proper list hash
 		// Calculate chunk limit for consistency
 		if isBasicType(elemType.Type()) {
-			elemSize := elemType.Size()
-			chunkLimit := (listLimit*elemSize + 31) / 32
-			hh.MerkleizeWithMixin(hashIndex, 0, chunkLimit)
+			hh.MerkleizeWithMixin(hashIndex, 0, ssz.CalculateLimit(listLimit, listLength, elemType.Size()))
 		} else {
 			hh.MerkleizeWithMixin(hashIndex, 0, listLimit)
 		}
@@ -229,7 +227,6 @@ func buildRootFromList(si *sszquery.SSZInfo, serializedData []byte, hh *ssz.Hash
 		// merkleize(pack(value)) if value is a basic object or a vector of basic objects.
 		// mix_in_length(merkleize(pack(value), limit=chunk_count(type)), len(value)) if value is a list of basic objects.
 		// mix_in_length: Given a Merkle root and a length ("uint256" little-endian serialization) return hash(root + length).
-		// PutBytes handles chunking automatically for data > 32 bytes
 		hh.Append(serializedData[:listLength*elemType.Size()])
 
 		// For basic types, calculate the maximum number of chunks based on element size

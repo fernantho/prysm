@@ -128,3 +128,15 @@ message BitvectorContainer {
 message BasicTypeList {
   repeated uint64 field_list_uint64 = 1 [ (ethereum.eth.ext.ssz_max) = "2048" ];
 }
+
+message FixedNestedContainersList{
+    repeated FixedNestedContainer fixed_nested_containers = 1 [ (ethereum.eth.ext.ssz_max) = "1099511627776" ];
+}
+
+message BasicTypeVector{
+  repeated uint64 field_vector_uint64 = 1 [ (ethereum.eth.ext.ssz_size) = "24" ];
+}
+
+message FixedNestedContainerVector{
+    repeated FixedNestedContainer validator = 2 [ (ethereum.eth.ext.ssz_max) = "4" ];
+}

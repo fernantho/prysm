@@ -44,6 +44,9 @@ ssz_gen_marshal(
         "BitlistContainer",
         "BitvectorContainer",
         "BasicTypeList",
+        "FixedNestedContainersList",
+        "BasicTypeVector",
+        "FixedNestedContainerVector",
     ],
 )
 

@@ -467,6 +467,138 @@ func (x *BasicTypeList) GetFieldListUint64() []uint64 {
 	return nil
 }
 
+type FixedNestedContainersList struct {
+	state                 protoimpl.MessageState  `protogen:"open.v1"`
+	FixedNestedContainers []*FixedNestedContainer `protobuf:"bytes,1,rep,name=fixed_nested_containers,json=fixedNestedContainers,proto3" json:"fixed_nested_containers,omitempty" ssz-max:"1099511627776"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
+}
+
+func (x *FixedNestedContainersList) Reset() {
+	*x = FixedNestedContainersList{}
+	mi := &file_proto_ssz_query_ssz_query_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FixedNestedContainersList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FixedNestedContainersList) ProtoMessage() {}
+
+func (x *FixedNestedContainersList) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_ssz_query_ssz_query_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FixedNestedContainersList.ProtoReflect.Descriptor instead.
+func (*FixedNestedContainersList) Descriptor() ([]byte, []int) {
+	return file_proto_ssz_query_ssz_query_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *FixedNestedContainersList) GetFixedNestedContainers() []*FixedNestedContainer {
+	if x != nil {
+		return x.FixedNestedContainers
+	}
+	return nil
+}
+
+type BasicTypeVector struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	FieldVectorUint64 []uint64               `protobuf:"varint,1,rep,packed,name=field_vector_uint64,json=fieldVectorUint64,proto3" json:"field_vector_uint64,omitempty" ssz-size:"24"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *BasicTypeVector) Reset() {
+	*x = BasicTypeVector{}
+	mi := &file_proto_ssz_query_ssz_query_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BasicTypeVector) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BasicTypeVector) ProtoMessage() {}
+
+func (x *BasicTypeVector) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_ssz_query_ssz_query_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BasicTypeVector.ProtoReflect.Descriptor instead.
+func (*BasicTypeVector) Descriptor() ([]byte, []int) {
+	return file_proto_ssz_query_ssz_query_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *BasicTypeVector) GetFieldVectorUint64() []uint64 {
+	if x != nil {
+		return x.FieldVectorUint64
+	}
+	return nil
+}
+
+type FixedNestedContainerVector struct {
+	state         protoimpl.MessageState  `protogen:"open.v1"`
+	Validator     []*FixedNestedContainer `protobuf:"bytes,2,rep,name=validator,proto3" json:"validator,omitempty" ssz-max:"4"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FixedNestedContainerVector) Reset() {
+	*x = FixedNestedContainerVector{}
+	mi := &file_proto_ssz_query_ssz_query_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FixedNestedContainerVector) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FixedNestedContainerVector) ProtoMessage() {}
+
+func (x *FixedNestedContainerVector) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_ssz_query_ssz_query_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FixedNestedContainerVector.ProtoReflect.Descriptor instead.
+func (*FixedNestedContainerVector) Descriptor() ([]byte, []int) {
+	return file_proto_ssz_query_ssz_query_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *FixedNestedContainerVector) GetValidator() []*FixedNestedContainer {
+	if x != nil {
+		return x.Validator
+	}
+	return nil
+}
+
 var File_proto_ssz_query_ssz_query_proto protoreflect.FileDescriptor
 
 var file_proto_ssz_query_ssz_query_proto_rawDesc = []byte{
@@ -572,11 +704,31 @@ var file_proto_ssz_query_ssz_query_proto_rawDesc = []byte{
 	0x70, 0x65, 0x4c, 0x69, 0x73, 0x74, 0x12, 0x34, 0x0a, 0x11, 0x66, 0x69, 0x65, 0x6c, 0x64, 0x5f,
 	0x6c, 0x69, 0x73, 0x74, 0x5f, 0x75, 0x69, 0x6e, 0x74, 0x36, 0x34, 0x18, 0x01, 0x20, 0x03, 0x28,
 	0x04, 0x42, 0x08, 0x92, 0xb5, 0x18, 0x04, 0x32, 0x30, 0x34, 0x38, 0x52, 0x0f, 0x66, 0x69, 0x65,
-	0x6c, 0x64, 0x4c, 0x69, 0x73, 0x74, 0x55, 0x69, 0x6e, 0x74, 0x36, 0x34, 0x42, 0x32, 0x5a, 0x30,
-	0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x4f, 0x66, 0x66, 0x63, 0x68,
-	0x61, 0x69, 0x6e, 0x4c, 0x61, 0x62, 0x73, 0x2f, 0x70, 0x72, 0x79, 0x73, 0x6d, 0x2f, 0x76, 0x36,
-	0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x73, 0x73, 0x7a, 0x5f, 0x71, 0x75, 0x65, 0x72, 0x79,
-	0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x6c, 0x64, 0x4c, 0x69, 0x73, 0x74, 0x55, 0x69, 0x6e, 0x74, 0x36, 0x34, 0x22, 0x87, 0x01, 0x0a,
+	0x19, 0x46, 0x69, 0x78, 0x65, 0x64, 0x4e, 0x65, 0x73, 0x74, 0x65, 0x64, 0x43, 0x6f, 0x6e, 0x74,
+	0x61, 0x69, 0x6e, 0x65, 0x72, 0x73, 0x4c, 0x69, 0x73, 0x74, 0x12, 0x6a, 0x0a, 0x17, 0x66, 0x69,
+	0x78, 0x65, 0x64, 0x5f, 0x6e, 0x65, 0x73, 0x74, 0x65, 0x64, 0x5f, 0x63, 0x6f, 0x6e, 0x74, 0x61,
+	0x69, 0x6e, 0x65, 0x72, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x1f, 0x2e, 0x73, 0x73,
+	0x7a, 0x5f, 0x71, 0x75, 0x65, 0x72, 0x79, 0x2e, 0x46, 0x69, 0x78, 0x65, 0x64, 0x4e, 0x65, 0x73,
+	0x74, 0x65, 0x64, 0x43, 0x6f, 0x6e, 0x74, 0x61, 0x69, 0x6e, 0x65, 0x72, 0x42, 0x11, 0x92, 0xb5,
+	0x18, 0x0d, 0x31, 0x30, 0x39, 0x39, 0x35, 0x31, 0x31, 0x36, 0x32, 0x37, 0x37, 0x37, 0x36, 0x52,
+	0x15, 0x66, 0x69, 0x78, 0x65, 0x64, 0x4e, 0x65, 0x73, 0x74, 0x65, 0x64, 0x43, 0x6f, 0x6e, 0x74,
+	0x61, 0x69, 0x6e, 0x65, 0x72, 0x73, 0x22, 0x49, 0x0a, 0x0f, 0x42, 0x61, 0x73, 0x69, 0x63, 0x54,
+	0x79, 0x70, 0x65, 0x56, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x12, 0x36, 0x0a, 0x13, 0x66, 0x69, 0x65,
+	0x6c, 0x64, 0x5f, 0x76, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x5f, 0x75, 0x69, 0x6e, 0x74, 0x36, 0x34,
+	0x18, 0x01, 0x20, 0x03, 0x28, 0x04, 0x42, 0x06, 0x8a, 0xb5, 0x18, 0x02, 0x32, 0x34, 0x52, 0x11,
+	0x66, 0x69, 0x65, 0x6c, 0x64, 0x56, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x55, 0x69, 0x6e, 0x74, 0x36,
+	0x34, 0x22, 0x62, 0x0a, 0x1a, 0x46, 0x69, 0x78, 0x65, 0x64, 0x4e, 0x65, 0x73, 0x74, 0x65, 0x64,
+	0x43, 0x6f, 0x6e, 0x74, 0x61, 0x69, 0x6e, 0x65, 0x72, 0x56, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x12,
+	0x44, 0x0a, 0x09, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72, 0x18, 0x02, 0x20, 0x03,
+	0x28, 0x0b, 0x32, 0x1f, 0x2e, 0x73, 0x73, 0x7a, 0x5f, 0x71, 0x75, 0x65, 0x72, 0x79, 0x2e, 0x46,
+	0x69, 0x78, 0x65, 0x64, 0x4e, 0x65, 0x73, 0x74, 0x65, 0x64, 0x43, 0x6f, 0x6e, 0x74, 0x61, 0x69,
+	0x6e, 0x65, 0x72, 0x42, 0x05, 0x92, 0xb5, 0x18, 0x01, 0x34, 0x52, 0x09, 0x76, 0x61, 0x6c, 0x69,
+	0x64, 0x61, 0x74, 0x6f, 0x72, 0x42, 0x32, 0x5a, 0x30, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e,
+	0x63, 0x6f, 0x6d, 0x2f, 0x4f, 0x66, 0x66, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x4c, 0x61, 0x62, 0x73,
+	0x2f, 0x70, 0x72, 0x79, 0x73, 0x6d, 0x2f, 0x76, 0x36, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f,
+	0x73, 0x73, 0x7a, 0x5f, 0x71, 0x75, 0x65, 0x72, 0x79, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f,
+	0x33,
 }
 
 var (
@@ -591,25 +743,30 @@ func file_proto_ssz_query_ssz_query_proto_rawDescGZIP() []byte {
 	return file_proto_ssz_query_ssz_query_proto_rawDescData
 }
 
-var file_proto_ssz_query_ssz_query_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_proto_ssz_query_ssz_query_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_proto_ssz_query_ssz_query_proto_goTypes = []any{
-	(*FixedNestedContainer)(nil),    // 0: ssz_query.FixedNestedContainer
-	(*FixedTestContainer)(nil),      // 1: ssz_query.FixedTestContainer
-	(*VariableNestedContainer)(nil), // 2: ssz_query.VariableNestedContainer
-	(*VariableTestContainer)(nil),   // 3: ssz_query.VariableTestContainer
-	(*BitlistContainer)(nil),        // 4: ssz_query.BitlistContainer
-	(*BitvectorContainer)(nil),      // 5: ssz_query.BitvectorContainer
-	(*BasicTypeList)(nil),           // 6: ssz_query.BasicTypeList
+	(*FixedNestedContainer)(nil),       // 0: ssz_query.FixedNestedContainer
+	(*FixedTestContainer)(nil),         // 1: ssz_query.FixedTestContainer
+	(*VariableNestedContainer)(nil),    // 2: ssz_query.VariableNestedContainer
+	(*VariableTestContainer)(nil),      // 3: ssz_query.VariableTestContainer
+	(*BitlistContainer)(nil),           // 4: ssz_query.BitlistContainer
+	(*BitvectorContainer)(nil),         // 5: ssz_query.BitvectorContainer
+	(*BasicTypeList)(nil),              // 6: ssz_query.BasicTypeList
+	(*FixedNestedContainersList)(nil),  // 7: ssz_query.FixedNestedContainersList
+	(*BasicTypeVector)(nil),            // 8: ssz_query.BasicTypeVector
+	(*FixedNestedContainerVector)(nil), // 9: ssz_query.FixedNestedContainerVector
 }
 var file_proto_ssz_query_ssz_query_proto_depIdxs = []int32{
 	0, // 0: ssz_query.FixedTestContainer.nested:type_name -> ssz_query.FixedNestedContainer
 	0, // 1: ssz_query.VariableTestContainer.field_list_container:type_name -> ssz_query.FixedNestedContainer
 	2, // 2: ssz_query.VariableTestContainer.nested:type_name -> ssz_query.VariableNestedContainer
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	0, // 3: ssz_query.FixedNestedContainersList.fixed_nested_containers:type_name -> ssz_query.FixedNestedContainer
+	0, // 4: ssz_query.FixedNestedContainerVector.validator:type_name -> ssz_query.FixedNestedContainer
+	5, // [5:5] is the sub-list for method output_type
+	5, // [5:5] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_proto_ssz_query_ssz_query_proto_init() }
@@ -623,7 +780,7 @@ func file_proto_ssz_query_ssz_query_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_proto_ssz_query_ssz_query_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   7,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
