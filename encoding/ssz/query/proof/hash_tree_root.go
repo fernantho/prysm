@@ -15,9 +15,12 @@ import (
 // them using binary Merkle trees.
 //
 // Parameters:
+// - si: The SSZInfo describing the structure of the data.
+// - serializedData: The SSZ-serialized byte slice of the object to compute the hash tree root for.
 // Returns:
+// - 32-byte hash tree root of the object.
+// - error if any issues occur during computation.
 // The method handles all SSZ-supported types including:
-// Example:
 func HashTreeRoot(si *sszquery.SSZInfo, serializedData []byte) ([32]byte, error) {
 	pool := &ssz.DefaultHasherPool
 
@@ -37,9 +40,12 @@ func HashTreeRoot(si *sszquery.SSZInfo, serializedData []byte) ([32]byte, error)
 // buildRootFromSSZInfo is the core recursive function for computing hash tree roots of Go values.
 //
 // Parameters:
+// - si: The SSZInfo describing the structure of the data.
+// - serializedData: The SSZ-serialized byte slice of the object to compute the hash tree root for.
+// - hh: The hasher instance to use for computing the hash tree root.
 // Returns:
+// - error if any issues occur during computation.
 // The method handles all SSZ-supported types including:
-// Example:
 func buildRootFromSSZInfo(si *sszquery.SSZInfo, serializedData []byte, hh *ssz.Hasher) error {
 	if si == nil {
 		return fmt.Errorf("nil SSZInfo")
@@ -82,10 +88,19 @@ func buildRootFromSSZInfo(si *sszquery.SSZInfo, serializedData []byte, hh *ssz.H
 	return nil
 }
 
+// buildRootFromBasicType computes the hash tree root for basic SSZ types (boolean, uintN, byte).
+//
+// Parameters:
+// - si: The SSZInfo describing the structure of the data.
+// - serializedData: The SSZ-serialized byte slice of the object to compute the hash tree root for.
+// - hh: The hasher instance to use for computing the hash tree root.
+// Returns:
+// - error if any issues occur during computation.
 func buildRootFromBasicType(si *sszquery.SSZInfo, serializedData []byte, hh *ssz.Hasher) error {
 	if hh == nil {
 		return fmt.Errorf("nil hasher")
 	}
+	// TODO: check serializedData length 0
 	hashIndex := hh.Index()
 	hh.PutBytes(serializedData[:si.FixedSize()])
 	hh.Merkleize(hashIndex)
@@ -95,9 +110,11 @@ func buildRootFromBasicType(si *sszquery.SSZInfo, serializedData []byte, hh *ssz
 // buildRootFromVector computes the hash tree root for ssz vectors.
 //
 // Parameters:
+// - si: The SSZInfo describing the structure of the data.
+// - serializedData: The SSZ-serialized byte slice of the object to compute the hash tree root for.
+// - hh: The hasher instance to use for computing the hash tree root.
 // Returns:
-// The method handles all SSZ-supported types including:
-// Example:
+// - error if any issues occur during computation.
 func buildRootFromVector(si *sszquery.SSZInfo, serializedData []byte, hh *ssz.Hasher) error {
 	hashIndex := hh.Index()
 
@@ -106,8 +123,7 @@ func buildRootFromVector(si *sszquery.SSZInfo, serializedData []byte, hh *ssz.Ha
 	}
 
 	if si.Type() == sszquery.Bitvector {
-		// pack_bits(bits): Given the bits of bitlist or bitvector, get bitfield_bytes by packing them in bytes and aligning to the start. The length-delimiting bit for bitlists is excluded. Then return pack(bitfield_bytes).
-		// merkleize(pack_bits(value), limit=chunk_count(type)) if value is a bitvector.
+		// Pack bits into bytes and merkleize for bitvector hash tree root
 		hh.PutBytes(serializedData[:(si.FixedSize())])
 		hh.Merkleize(hashIndex)
 		return nil
@@ -123,26 +139,25 @@ func buildRootFromVector(si *sszquery.SSZInfo, serializedData []byte, hh *ssz.Ha
 		return err
 	}
 
-	vectorLength := vi.Length()
-	if vectorLength == 0 {
-		// empty vector
-		hh.Merkleize(hashIndex)
-		return nil
-	}
+	vectorLength := vi.Length() // NOTE: vectorLength cannot be zero for valid SSZ vectors
 
 	if isBasicType(elemType.Type()) {
-		// merkleize(pack(value)) if value is a basic object or a vector of basic objects.
-		// pack(values): Given ordered objects of the same basic type:
-		// - Serialize values into bytes. DONE
-		// - If not aligned to a multiple of BYTES_PER_CHUNK bytes, right-pad with zeroes to the next multiple.
-		// - Partition the bytes into BYTES_PER_CHUNK-byte chunks.
-		// - Return the chunks.
-		// PutBytes handles chunking automatically for data > 32 bytes
+		// Pack basic type elements into bytes and merkleize for vector hash tree root
 		hh.PutBytes(serializedData[:vectorLength*elemType.Size()])
 	} else {
-		// merkleize([hash_tree_root(element) for element in value]) if value is a vector of composite objects or a container.
-		// For composite types, hash each element individually, then merkleize all the hashes
+		// Hash each composite element individually, then merkleize all hashes
 		elemSize := elemType.Size()
+		// Validate element size to prevent potential issues
+		if elemSize == 0 {
+			return fmt.Errorf("element type has zero size")
+		}
+
+		// Check if we have enough data for all vector elements
+		requiredDataSize := vectorLength * elemSize
+		if uint64(len(serializedData)) < requiredDataSize {
+			return fmt.Errorf("insufficient data: need %d bytes, have %d", requiredDataSize, len(serializedData))
+		}
+
 		for i := uint64(0); i < vectorLength; i++ {
 			elementOffset := i * elemSize
 			elementData := serializedData[elementOffset : elementOffset+elemSize]
@@ -160,9 +175,11 @@ func buildRootFromVector(si *sszquery.SSZInfo, serializedData []byte, hh *ssz.Ha
 // buildRootFromList computes the hash tree root for ssz lists.
 //
 // Parameters:
+// - si: The SSZInfo describing the structure of the data.
+// - serializedData: The SSZ-serialized byte slice of the object to compute the hash tree root for.
+// - hh: The hasher instance to use for computing the hash tree root.
 // Returns:
-// The method handles all SSZ-supported types including:
-// Example:
+// - error if any issues occur during computation.
 func buildRootFromList(si *sszquery.SSZInfo, serializedData []byte, hh *ssz.Hasher) error {
 	hashIndex := hh.Index()
 
