@@ -14,22 +14,16 @@ func TestEmptyBitlist(t *testing.T) {
 	}
 
 	info, err := AnalyzeObject(bitlistContainer)
-	if err != nil {
-		t.Fatalf("AnalyzeObject failed: %v", err)
-	}
+	require.NoError(t, err, "AnalyzeObject failed")
 
 	// Get the container info to access individual fields
 	containerInfo, err := info.ContainerInfo()
-	if err != nil {
-		t.Fatalf("ContainerInfo failed: %v", err)
-	}
+	require.NoError(t, err, "ContainerInfo failed")
 
 	// Access the BitlistField specifically
 	fields := containerInfo.fields
 	bitlistFieldInfo, exists := fields["bitlist_field"]
-	if !exists {
-		t.Fatalf("BitlistField not found in container fields")
-	}
+	require.Equal(t, true, exists, "BitlistField not found in container fields")
 
 	// Get the SSZ info for the bitlist field
 	bitlistSSZInfo := bitlistFieldInfo.sszInfo
@@ -37,9 +31,7 @@ func TestEmptyBitlist(t *testing.T) {
 
 	// Get bitlist-specific info
 	bitlistInfo, err := bitlistSSZInfo.BitlistInfo()
-	if err != nil {
-		t.Fatalf("BitlistInfo failed: %v", err)
-	}
+	require.NoError(t, err, "BitlistInfo failed")
 
 	require.NotNil(t, bitlistInfo, "Expected non-nil BitlistInfo")
 	require.Equal(t, uint64(2048), bitlistInfo.Limit(), "Expected limit to be 2048 (from ssz_max annotation)")
