@@ -41,6 +41,7 @@ ssz_gen_marshal(
         "FixedTestContainer",
         "FixedNestedContainer",
         "VariableTestContainer",
+        "BitlistContainer",
     ],
 )
 
