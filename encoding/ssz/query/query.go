@@ -19,7 +19,7 @@ func CalculateOffsetAndLength(sszInfo *sszInfo, path []PathElement) (*sszInfo, u
 	walk := sszInfo
 	offset := uint64(0)
 
-	for _, elem := range path {
+	for pathIndex, elem := range path {
 		containerInfo, err := walk.ContainerInfo()
 		if err != nil {
 			return nil, 0, 0, fmt.Errorf("could not get field infos: %w", err)
@@ -45,16 +45,18 @@ func CalculateOffsetAndLength(sszInfo *sszInfo, path []PathElement) (*sszInfo, u
 
 				walk = listInfo.element
 				if walk.isVariable {
-					// 1. Cumulative sum of sizes of previous elements to get the offset.
+					// Cumulative sum of sizes of previous elements to get the offset.
 					for i := range index {
 						offset += listInfo.elementSizes[i]
 					}
 
-					// 2. Set retroactively the length of sszInfo of walk.
-					size := listInfo.elementSizes[index]
-					err := walk.SetLengthBySize(size)
-					if err != nil {
-						return nil, 0, 0, fmt.Errorf("could not set length by size for field %s: %w", elem.Name, err)
+					// IMPORTANT: For variable-sized lists, we must use the stored element size at this index
+					// rather than the element template's size. When populating variable-length info, the shared
+					// element template is recursively updated for each list item, causing it to retain the
+					// size information of the last processed element. The correct individual element sizes
+					// are preserved in the elementSizes array.
+					if pathIndex == len(path)-1 {
+						return walk, offset, listInfo.elementSizes[index], nil
 					}
 				} else {
 					offset += index * listInfo.element.Size()
