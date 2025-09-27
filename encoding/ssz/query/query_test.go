@@ -252,39 +252,39 @@ func TestCalculateOffsetAndLength(t *testing.T) {
 				name:           "variable_container_list",
 				path:           ".variable_container_list",
 				expectedOffset: 547,
-				expectedLength: 240,
+				expectedLength: 604,
 			},
 			// Bitlist field
 			{
 				name:           "bitlist_field",
 				path:           ".bitlist_field",
-				expectedOffset: 787,
+				expectedOffset: 1151,
 				expectedLength: 33, // 32 bytes + 1 byte for length delimiter
 			},
 			// 2D bytes field
 			{
 				name:           "nested_list_field",
 				path:           ".nested_list_field",
-				expectedOffset: 832,
+				expectedOffset: 1196,
 				expectedLength: 99,
 			},
 			// Accessing an element in the list of nested bytes
 			{
 				name:           "nested_list_field (0th element)",
 				path:           ".nested_list_field[0]",
-				expectedOffset: 832,
+				expectedOffset: 1196,
 				expectedLength: 32,
 			},
 			{
 				name:           "nested_list_field (1st element)",
 				path:           ".nested_list_field[1]",
-				expectedOffset: 864,
+				expectedOffset: 1228,
 				expectedLength: 33,
 			},
 			{
 				name:           "nested_list_field (2nd element)",
 				path:           ".nested_list_field[2]",
-				expectedOffset: 897,
+				expectedOffset: 1261,
 				expectedLength: 34,
 			},
 			// Fixed trailing field
@@ -514,17 +514,19 @@ func createVariableTestContainer() *sszquerypb.VariableTestContainer {
 	// Two VariableOuterContainer elements, each with two VariableInnerContainer elements
 	variableContainerList := make([]*sszquerypb.VariableOuterContainer, 2)
 	for i := range variableContainerList {
-		// Inner1: 60 bytes
-		inner1 := &sszquerypb.VariableInnerContainer{
+		// Inner1: 8 + 4 + 4 + (8*3) + (4*3) + 99 = 151 bytes
+		inner1 := &sszquerypb.VariableNestedContainer{
+			Value1:          42,
 			FieldListUint64: []uint64{uint64(i), uint64(i + 1), uint64(i + 2)},
-			FieldBytes32:    make([]byte, 32),
+			NestedListField: nestedListField,
 		}
-		// Inner2: 52 bytes
-		inner2 := &sszquerypb.VariableInnerContainer{
+		// Inner2: 8 + 4 + 4 + (8*2) + (4*3) + 99 = 143 bytes
+		inner2 := &sszquerypb.VariableNestedContainer{
+			Value1:          84,
 			FieldListUint64: []uint64{uint64(i + 3), uint64(i + 4)},
-			FieldBytes32:    make([]byte, 32),
+			NestedListField: nestedListField,
 		}
-		// (4*2) + 60 + 52 = 120 bytes per VariableOuterContainer
+		// (4*2) + 151 + 143 = 302 bytes per VariableOuterContainer
 		variableContainerList[i] = &sszquerypb.VariableOuterContainer{
 			Inner_1: inner1,
 			Inner_2: inner2,

@@ -71,16 +71,11 @@ message VariableNestedContainer {
   ];
 }
 
-// Mock of IndexedAttestationElectra
-message VariableInnerContainer {
-  repeated uint64 field_list_uint64 = 1 [ (ethereum.eth.ext.ssz_max) = "50" ]; // List[uint64, 50]
-  bytes field_bytes32 = 2 [ (ethereum.eth.ext.ssz_size) = "32" ];  // Bytes32
-}
 
 // Mock of AttesterSlashingElectra
 message VariableOuterContainer {
-  VariableInnerContainer inner_1 = 1;
-  VariableInnerContainer inner_2 = 2;
+  VariableNestedContainer inner_1 = 1;
+  VariableNestedContainer inner_2 = 2;
 }
 
 // VariableTestContainer - comprehensive variable-size container for SSZ query testing

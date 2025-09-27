@@ -509,126 +509,6 @@ func (v *VariableNestedContainer) HashTreeRootWith(hh *ssz.Hasher) (err error) {
 	return
 }
 
-// MarshalSSZ ssz marshals the VariableInnerContainer object
-func (v *VariableInnerContainer) MarshalSSZ() ([]byte, error) {
-	return ssz.MarshalSSZ(v)
-}
-
-// MarshalSSZTo ssz marshals the VariableInnerContainer object to a target array
-func (v *VariableInnerContainer) MarshalSSZTo(buf []byte) (dst []byte, err error) {
-	dst = buf
-	offset := int(36)
-
-	// Offset (0) 'FieldListUint64'
-	dst = ssz.WriteOffset(dst, offset)
-	offset += len(v.FieldListUint64) * 8
-
-	// Field (1) 'FieldBytes32'
-	if size := len(v.FieldBytes32); size != 32 {
-		err = ssz.ErrBytesLengthFn("--.FieldBytes32", size, 32)
-		return
-	}
-	dst = append(dst, v.FieldBytes32...)
-
-	// Field (0) 'FieldListUint64'
-	if size := len(v.FieldListUint64); size > 50 {
-		err = ssz.ErrListTooBigFn("--.FieldListUint64", size, 50)
-		return
-	}
-	for ii := 0; ii < len(v.FieldListUint64); ii++ {
-		dst = ssz.MarshalUint64(dst, v.FieldListUint64[ii])
-	}
-
-	return
-}
-
-// UnmarshalSSZ ssz unmarshals the VariableInnerContainer object
-func (v *VariableInnerContainer) UnmarshalSSZ(buf []byte) error {
-	var err error
-	size := uint64(len(buf))
-	if size < 36 {
-		return ssz.ErrSize
-	}
-
-	tail := buf
-	var o0 uint64
-
-	// Offset (0) 'FieldListUint64'
-	if o0 = ssz.ReadOffset(buf[0:4]); o0 > size {
-		return ssz.ErrOffset
-	}
-
-	if o0 != 36 {
-		return ssz.ErrInvalidVariableOffset
-	}
-
-	// Field (1) 'FieldBytes32'
-	if cap(v.FieldBytes32) == 0 {
-		v.FieldBytes32 = make([]byte, 0, len(buf[4:36]))
-	}
-	v.FieldBytes32 = append(v.FieldBytes32, buf[4:36]...)
-
-	// Field (0) 'FieldListUint64'
-	{
-		buf = tail[o0:]
-		num, err := ssz.DivideInt2(len(buf), 8, 50)
-		if err != nil {
-			return err
-		}
-		v.FieldListUint64 = ssz.ExtendUint64(v.FieldListUint64, num)
-		for ii := 0; ii < num; ii++ {
-			v.FieldListUint64[ii] = ssz.UnmarshallUint64(buf[ii*8 : (ii+1)*8])
-		}
-	}
-	return err
-}
-
-// SizeSSZ returns the ssz encoded size in bytes for the VariableInnerContainer object
-func (v *VariableInnerContainer) SizeSSZ() (size int) {
-	size = 36
-
-	// Field (0) 'FieldListUint64'
-	size += len(v.FieldListUint64) * 8
-
-	return
-}
-
-// HashTreeRoot ssz hashes the VariableInnerContainer object
-func (v *VariableInnerContainer) HashTreeRoot() ([32]byte, error) {
-	return ssz.HashWithDefaultHasher(v)
-}
-
-// HashTreeRootWith ssz hashes the VariableInnerContainer object with a hasher
-func (v *VariableInnerContainer) HashTreeRootWith(hh *ssz.Hasher) (err error) {
-	indx := hh.Index()
-
-	// Field (0) 'FieldListUint64'
-	{
-		if size := len(v.FieldListUint64); size > 50 {
-			err = ssz.ErrListTooBigFn("--.FieldListUint64", size, 50)
-			return
-		}
-		subIndx := hh.Index()
-		for _, i := range v.FieldListUint64 {
-			hh.AppendUint64(i)
-		}
-		hh.FillUpTo32()
-
-		numItems := uint64(len(v.FieldListUint64))
-		hh.MerkleizeWithMixin(subIndx, numItems, ssz.CalculateLimit(50, numItems, 8))
-	}
-
-	// Field (1) 'FieldBytes32'
-	if size := len(v.FieldBytes32); size != 32 {
-		err = ssz.ErrBytesLengthFn("--.FieldBytes32", size, 32)
-		return
-	}
-	hh.PutBytes(v.FieldBytes32)
-
-	hh.Merkleize(indx)
-	return
-}
-
 // MarshalSSZ ssz marshals the VariableOuterContainer object
 func (v *VariableOuterContainer) MarshalSSZ() ([]byte, error) {
 	return ssz.MarshalSSZ(v)
@@ -642,14 +522,14 @@ func (v *VariableOuterContainer) MarshalSSZTo(buf []byte) (dst []byte, err error
 	// Offset (0) 'Inner_1'
 	dst = ssz.WriteOffset(dst, offset)
 	if v.Inner_1 == nil {
-		v.Inner_1 = new(VariableInnerContainer)
+		v.Inner_1 = new(VariableNestedContainer)
 	}
 	offset += v.Inner_1.SizeSSZ()
 
 	// Offset (1) 'Inner_2'
 	dst = ssz.WriteOffset(dst, offset)
 	if v.Inner_2 == nil {
-		v.Inner_2 = new(VariableInnerContainer)
+		v.Inner_2 = new(VariableNestedContainer)
 	}
 	offset += v.Inner_2.SizeSSZ()
 
@@ -695,7 +575,7 @@ func (v *VariableOuterContainer) UnmarshalSSZ(buf []byte) error {
 	{
 		buf = tail[o0:o1]
 		if v.Inner_1 == nil {
-			v.Inner_1 = new(VariableInnerContainer)
+			v.Inner_1 = new(VariableNestedContainer)
 		}
 		if err = v.Inner_1.UnmarshalSSZ(buf); err != nil {
 			return err
@@ -706,7 +586,7 @@ func (v *VariableOuterContainer) UnmarshalSSZ(buf []byte) error {
 	{
 		buf = tail[o1:]
 		if v.Inner_2 == nil {
-			v.Inner_2 = new(VariableInnerContainer)
+			v.Inner_2 = new(VariableNestedContainer)
 		}
 		if err = v.Inner_2.UnmarshalSSZ(buf); err != nil {
 			return err
@@ -721,13 +601,13 @@ func (v *VariableOuterContainer) SizeSSZ() (size int) {
 
 	// Field (0) 'Inner_1'
 	if v.Inner_1 == nil {
-		v.Inner_1 = new(VariableInnerContainer)
+		v.Inner_1 = new(VariableNestedContainer)
 	}
 	size += v.Inner_1.SizeSSZ()
 
 	// Field (1) 'Inner_2'
 	if v.Inner_2 == nil {
-		v.Inner_2 = new(VariableInnerContainer)
+		v.Inner_2 = new(VariableNestedContainer)
 	}
 	size += v.Inner_2.SizeSSZ()
 
