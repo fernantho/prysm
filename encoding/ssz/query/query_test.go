@@ -94,6 +94,13 @@ func TestCalculateOffsetAndLength(t *testing.T) {
 				expectedOffset: 277,
 				expectedLength: 160, // 5 * 32 bytes
 			},
+			// Accessing an element in the 2D bytes field
+			{
+				name:           "two_dimension_bytes_field (1st element)",
+				path:           ".two_dimension_bytes_field[1]",
+				expectedOffset: 309,
+				expectedLength: 32,
+			},
 			// Bitvector fields
 			{
 				name:           "bitvector64_field",
@@ -366,6 +373,14 @@ func getFixedTestContainerSpec() testutil.TestSpec {
 			{
 				Path:     ".two_dimension_bytes_field",
 				Expected: testContainer.TwoDimensionBytesField,
+			},
+			{
+				Path:     ".two_dimension_bytes_field[0]",
+				Expected: testContainer.TwoDimensionBytesField[0],
+			},
+			{
+				Path:     ".two_dimension_bytes_field[1]",
+				Expected: testContainer.TwoDimensionBytesField[1],
 			},
 			// Bitvector fields
 			{
