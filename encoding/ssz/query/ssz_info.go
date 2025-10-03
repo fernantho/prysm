@@ -33,6 +33,9 @@ type sszInfo struct {
 
 	// For Bitvector types.
 	bitvectorInfo *bitvectorInfo
+
+	// Original object being analyzed
+	value any
 }
 
 func (info *sszInfo) FixedSize() uint64 {

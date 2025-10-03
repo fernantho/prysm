@@ -18,6 +18,9 @@ func AnalyzeObject(obj any) (*sszInfo, error) {
 		return nil, fmt.Errorf("could not analyze type %s: %w", value.Type().Name(), err)
 	}
 
+	// Store the original object
+	info.value = obj
+
 	// Populate variable-length information using the actual value.
 	err = PopulateVariableLengthInfo(info, value.Interface())
 	if err != nil {
