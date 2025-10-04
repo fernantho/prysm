@@ -2,7 +2,6 @@ package query
 
 import (
 	"errors"
-	"fmt"
 )
 
 // HashTreeRoot calls the HashTreeRoot method on the stored value if it implements the Hashable interface.
@@ -12,14 +11,14 @@ func (info *sszInfo) HashTreeRoot() ([32]byte, error) {
 		return [32]byte{}, errors.New("sszInfo is nil")
 	}
 
-	if info.value == nil {
-		return [32]byte{}, errors.New("stored value is nil")
+	if info.iface == nil {
+		return [32]byte{}, errors.New("not stored iface")
 	}
 
 	// Check if the value implements the Hashable interface
-	if hashable, ok := info.value.(interface{ HashTreeRoot() ([32]byte, error) }); ok {
+	if hashable, ok := info.iface.(interface{ HashTreeRoot() ([32]byte, error) }); ok {
 		return hashable.HashTreeRoot()
 	}
 
-	return [32]byte{}, fmt.Errorf("stored value of type %T does not implement HashTreeRoot() method", info.value)
+	return [32]byte{}, errors.New("stored interface does not implement HashTreeRoot() method")
 }

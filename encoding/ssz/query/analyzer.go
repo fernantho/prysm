@@ -19,7 +19,7 @@ func AnalyzeObject(obj any) (*sszInfo, error) {
 	}
 
 	// Store the original object
-	info.value = obj
+	info.iface = obj.(SSZIface)
 
 	// Populate variable-length information using the actual value.
 	err = PopulateVariableLengthInfo(info, value.Interface())
