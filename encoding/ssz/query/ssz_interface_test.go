@@ -9,7 +9,7 @@ import (
 	"github.com/prysmaticlabs/go-bitfield"
 )
 
-func TestHashTreeRoot_batch(t *testing.T) {
+func TestSSZInterface_batch(t *testing.T) {
 	tests := []struct {
 		name string
 		obj  any

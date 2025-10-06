@@ -11,8 +11,8 @@ type SSZIface interface {
 	// HashTreeRootWith(hh *ssz.Hasher) error
 }
 
-// HashTreeRoot calls the HashTreeRoot method on the stored value if it implements the Hashable interface.
-// This leverages the SSZ-generated HashTreeRoot methods from Fastssz.
+// HashTreeRoot calls the HashTreeRoot method on the stored interface if it implements SSZIface.
+// Returns the 32-byte hash tree root or an error if the interface doesn't support hashing.
 func (info *sszInfo) HashTreeRoot() ([32]byte, error) {
 	if info == nil {
 		return [32]byte{}, errors.New("sszInfo is nil")
@@ -30,6 +30,8 @@ func (info *sszInfo) HashTreeRoot() ([32]byte, error) {
 	return [32]byte{}, errors.New("stored interface does not implement HashTreeRoot() method")
 }
 
+// MarshalSSZ calls the MarshalSSZ method on the stored interface if it implements SSZIface.
+// Returns the marshaled byte slice or an error if the interface doesn't support marshaling.
 func (info *sszInfo) MarshalSSZ() ([]byte, error) {
 	if info == nil {
 		return nil, errors.New("sszInfo is nil")
@@ -47,6 +49,8 @@ func (info *sszInfo) MarshalSSZ() ([]byte, error) {
 	return nil, errors.New("stored interface does not implement MarshalSSZ() method")
 }
 
+// UnmarshalSSZ calls the UnmarshalSSZ method on the stored interface if it implements SSZIface.
+// Returns an error if the interface doesn't support unmarshaling.
 func (info *sszInfo) UnmarshalSSZ(data []byte) error {
 	if info == nil {
 		return errors.New("sszInfo is nil")
