@@ -18,7 +18,7 @@ func AnalyzeObject(obj any) (*sszInfo, error) {
 		return nil, fmt.Errorf("could not analyze type %s: %w", value.Type().Name(), err)
 	}
 
-	// Store the original object
+	// Store the original object interface
 	info.iface = obj.(SSZIface)
 
 	// Populate variable-length information using the actual value.
