@@ -1,6 +1,7 @@
 package query_test
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/OffchainLabs/prysm/v6/encoding/ssz/query"
@@ -120,27 +121,38 @@ func TestSSZInterface_batch(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Analyze the object to get its sszInfo
 			info, err := query.AnalyzeObject(tt.obj)
 			require.NoError(t, err)
 			require.NotNil(t, info, "Expected non-nil SSZ info")
 
+			// Ensure the original object implements SSZIface
 			originalFunctions, ok := tt.obj.(query.SSZIface)
-			require.Equal(t, ok, true, "Original object does not implement HashTreeRoot")
+			require.Equal(t, ok, true, "Original object does not implement SSZInterface")
 
+			// Call HashTreeRoot on the sszInfo and compare results
 			hashTreeRoot, err := info.HashTreeRoot()
 			require.NoError(t, err, "HashTreeRoot should not return an error")
-			t.Logf("HashTreeRoot for %s: %x", tt.name, hashTreeRoot)
+			expectedHashTreeRoot, err := originalFunctions.HashTreeRoot()
+			require.NoError(t, err, "HashTreeRoot on original object should not return an error")
+			require.Equal(t, expectedHashTreeRoot, hashTreeRoot, "HashTreeRoot from sszInfo should match original object's HashTreeRoot")
 
+			// Call MarshalSSZ and compare results
 			expectedMarshaledData, err := originalFunctions.MarshalSSZ()
 			require.NoError(t, err, "MarshalSSZ on original object should not return an error")
 			marshalledData, err := info.MarshalSSZ()
 			require.NoError(t, err, "MarshalSSZ on sszInfo should not return an error")
 			require.DeepSSZEqual(t, expectedMarshaledData, marshalledData, "Marshalled data from sszInfo should match original object's marshalled data")
 
-			expectedHashTreeRoot, err := originalFunctions.HashTreeRoot()
-			require.NoError(t, err, "HashTreeRoot on original object should not return an error")
-			require.Equal(t, expectedHashTreeRoot, hashTreeRoot, "HashTreeRoot from sszInfo should match original object's HashTreeRoot")
-
+			// Now test UnmarshalSSZ by creating a new instance and unmarshaling into it
+			unmarshalledObj := reflect.New(reflect.TypeOf(tt.obj).Elem()).Interface()
+			require.NotNil(t, unmarshalledObj, "Expected non-nil SSZ info for unmarshalled object")
+			unmarshalledInfo, err := query.AnalyzeObject(unmarshalledObj)
+			require.NoError(t, err)
+			require.NotNil(t, unmarshalledInfo, "Expected non-nil SSZ info for unmarshalled object")
+			err = unmarshalledInfo.UnmarshalSSZ(marshalledData)
+			require.NoError(t, err, "UnmarshalSSZ should not return an error")
+			require.DeepSSZEqual(t, tt.obj, unmarshalledObj, "Unmarshalled object should match the original object")
 		})
 	}
 }
