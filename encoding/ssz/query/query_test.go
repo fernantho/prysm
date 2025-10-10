@@ -302,7 +302,7 @@ func getFixedTestContainerSpec() testutil.TestSpec {
 
 	return testutil.TestSpec{
 		Name:     "FixedTestContainer",
-		Type:     sszquerypb.FixedTestContainer{},
+		Type:     &sszquerypb.FixedTestContainer{},
 		Instance: testContainer,
 		PathTests: []testutil.PathTest{
 			// Basic types
@@ -439,7 +439,7 @@ func getVariableTestContainerSpec() testutil.TestSpec {
 
 	return testutil.TestSpec{
 		Name:     "VariableTestContainer",
-		Type:     sszquerypb.VariableTestContainer{},
+		Type:     &sszquerypb.VariableTestContainer{},
 		Instance: testContainer,
 		PathTests: []testutil.PathTest{
 			// Fixed leading field

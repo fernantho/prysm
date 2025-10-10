@@ -10,7 +10,7 @@ import (
 const offsetBytes = 4
 
 // AnalyzeObject analyzes given object and returns its SSZ information.
-func AnalyzeObject(obj any) (*sszInfo, error) {
+func AnalyzeObject(obj SSZObject) (*sszInfo, error) {
 	value := dereferencePointer(obj)
 
 	info, err := analyzeType(value.Type(), nil)
@@ -19,7 +19,7 @@ func AnalyzeObject(obj any) (*sszInfo, error) {
 	}
 
 	// Store the original object interface
-	info.iface = obj.(SSZIface)
+	info.source = obj
 
 	// Populate variable-length information using the actual value.
 	err = PopulateVariableLengthInfo(info, value.Interface())
