@@ -3,6 +3,7 @@ package query
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -13,10 +14,16 @@ const (
 	listBaseIndex = 2
 )
 
+type Element struct {
+	length  bool
+	name    string
+	indices *[]uint64
+}
+
 // GetGeneralizedIndexFromPath calculates the generalized index for a given path.
 // To calculate the generalized index, two inputs are needed:
-// 1. The path to the field (e.g., "FieldA.FieldB[3].FieldC") - snake case
-// 2. The sszInfo of the root info (to know the structure of the data)
+// 1. The sszInfo of the root info, to be able to navigate the SSZ structure
+// 2. The path to the field (e.g., "field_a.field_b[3].field_c")
 // It walks the path step by step, updating the generalized index at each step.
 func GetGeneralizedIndexFromPath(info *sszInfo, path []PathElement) (uint64, error) {
 	if info == nil {
@@ -34,6 +41,10 @@ func GetGeneralizedIndexFromPath(info *sszInfo, path []PathElement) (uint64, err
 
 	for _, pathElement := range path {
 		name := pathElement.Name
+		element, err := processPathElement(name)
+		if err != nil {
+			return 0, err
+		}
 
 		// If we descend to a basic type, the path cannot continue further
 		if isBasicType(currentInfo.sszType) {
@@ -41,37 +52,31 @@ func GetGeneralizedIndexFromPath(info *sszInfo, path []PathElement) (uint64, err
 		}
 
 		// checks if a path element is a length field
-		if isLengthField(name) {
-			var err error
-			root, currentInfo, err = processLengthField(currentInfo, name, root)
+		if element.length {
+			// Use the parsed inner name (without the len(...)) to resolve the field
+			root, currentInfo, err = processLengthField(currentInfo, element.name, root)
 			if err != nil {
 				return 0, err
 			}
 			continue
 		}
 
-		// case: field name (with optional array index)
+		// case: field name within a container - optionally with array indices
 		if currentInfo.sszType != Container {
 			return 0, fmt.Errorf("indexing requires a container field step first, got %s", currentInfo.sszType)
 		}
 
 		// checks if a path element is an array index (e.g., field_name[5])
-		fieldName := name
 		var idx *uint64
-		var err error
-		if strings.Contains(name, "[") {
-			// Split into field and index
-			fieldName = extractFieldName(name)
-			idx, err = extractArrayIndex(name)
-			if err != nil {
-				return 0, err
-			}
+		if element.indices != nil && len(*element.indices) > 0 {
+			// TODO: just a shortcut for now; extend to multi-dimensional arrays later
+			idx = &(*element.indices)[0]
 		}
 
 		// Retrieve the field position and SSZInfo for the field in the current container
-		fieldPos, fieldSsz, err := getContainerFieldByName(currentInfo, fieldName)
+		fieldPos, fieldSsz, err := getContainerFieldByName(currentInfo, element.name)
 		if err != nil {
-			return 0, fmt.Errorf("container field %q not found: %w", fieldName, err)
+			return 0, fmt.Errorf("container field %q not found: %w", element.name, err)
 		}
 
 		// root = root * base_index(=1) * pow2ceil(chunk_count(container)) + fieldPos
@@ -168,26 +173,18 @@ func GetGeneralizedIndexFromPath(info *sszInfo, path []PathElement) (uint64, err
 	return root, nil
 }
 
-// isLengthField checks if a path element is a length field (len(...))
-func isLengthField(name string) bool {
-	return strings.HasPrefix(name, "len(") && strings.HasSuffix(name, ")")
-}
-
 // processLengthField processes a length field (len(...)) and returns the corresponding SSZInfo
 // TODO: multi-dimensional arrays length?
 func processLengthField(info *sszInfo, name string, root uint64) (uint64, *sszInfo, error) {
-	// note: there cannot be empty spaces inside len(...) e.g. len( field )
-	fieldName := strings.TrimSuffix(strings.TrimPrefix(name, "len("), ")")
-
 	// In our case, the list and list length are two fields always wrapped in a container
 	if info.sszType != Container {
 		return 0, nil, fmt.Errorf("len() can only be applied for a list within a container field, got %s", info.sszType)
 	}
 
 	// Retrieve the field position and SSZInfo for the
-	fieldPos, fieldSsz, err := getContainerFieldByName(info, fieldName)
+	fieldPos, fieldSsz, err := getContainerFieldByName(info, name)
 	if err != nil {
-		return 0, nil, fmt.Errorf("container field %q not found: %w", fieldName, err)
+		return 0, nil, fmt.Errorf("container field %q not found: %w", name, err)
 	}
 
 	// Length field is only valid for List and Bitlist types
@@ -207,35 +204,6 @@ func processLengthField(info *sszInfo, name string, root uint64) (uint64, *sszIn
 	currentRoot = currentRoot*2 + 1
 
 	return currentRoot, currentInfo, nil
-}
-
-// extractFieldName extracts the field name from a path element name (removes array indices)
-// For example: "field_name[5]" returns "field_name"
-func extractFieldName(name string) string {
-	if idx := strings.Index(name, "["); idx != -1 {
-		return name[:idx]
-	}
-	return strings.ToLower(name)
-}
-
-// extractArrayIndex extracts the array index from a path element name
-// For example: "field_name[5]" returns 5
-// TODO: there may be more than one index (e.g., multi-dimensional arrays)
-func extractArrayIndex(name string) (*uint64, error) {
-	start := strings.Index(name, "[")
-	end := strings.Index(name, "]")
-
-	if start == -1 || end == -1 || start >= end {
-		return nil, errors.New("invalid array index format")
-	}
-
-	indexStr := name[start+1 : end]
-	index, err := strconv.ParseUint(indexStr, 10, 64)
-	if err != nil {
-		return nil, fmt.Errorf("invalid array index: %w", err)
-	}
-
-	return &index, nil
 }
 
 // isBasicType checks if the SSZType is a basic type
@@ -330,6 +298,75 @@ func itemLengthFromInfo(info *sszInfo) uint64 {
 		return info.Size()
 	}
 	return bytesPerChunk
+}
+
+// Helpers for input processing
+
+// processPathElement processes a path element string and returns an Element struct
+func processPathElement(elementStr string) (Element, error) {
+	element := Element{}
+
+	// Processing element string
+	processingField := elementStr
+
+	re := regexp.MustCompile(`^\s*len\s*\(\s*([^)]+?)\s*\)\s*$`)
+	matches := re.FindStringSubmatch(processingField)
+	if len(matches) == 2 {
+		element.length = true
+		// Extract the inner expression between len( and ) and continue parsing on that
+		processingField = matches[1]
+	}
+
+	// Default name is the full working string (may be updated below if it contains indices)
+	element.name = processingField
+
+	if strings.Contains(processingField, "[") {
+		// Split into field and indices, e.g., "array[0][1]" -> name:"array", indices:{0,1}
+		element.name = extractFieldName(processingField)
+		indices, err := extractArrayIndices(processingField)
+		if err != nil {
+			return Element{}, err
+		}
+		element.indices = &indices
+	}
+
+	return element, nil
+}
+
+// extractFieldName extracts the field name from a path element name (removes array indices)
+// For example: "field_name[5]" returns "field_name"
+func extractFieldName(name string) string {
+	if idx := strings.Index(name, "["); idx != -1 {
+		return name[:idx]
+	}
+	return strings.ToLower(name)
+}
+
+// extractArrayIndices returns every bracketed, non-negative index in the name,
+// e.g. "array[0][1]" -> []uint64{0, 1}. Errors if none are found or if any index is invalid.
+func extractArrayIndices(name string) ([]uint64, error) {
+	// Match all bracketed content, then we'll parse as unsigned to catch negatives explicitly
+	re := regexp.MustCompile(`\[\s*([^\]]+)\s*\]`)
+	matches := re.FindAllStringSubmatch(name, -1)
+
+	if len(matches) == 0 {
+		return nil, errors.New("no array indices found")
+	}
+
+	indices := make([]uint64, 0, len(matches))
+	for _, m := range matches {
+		raw := strings.TrimSpace(m[1])
+		// Forbid signs explicitly; we want a clear error similar to ParseUint's message
+		if strings.HasPrefix(raw, "-") {
+			return nil, fmt.Errorf("cannot process negative indices %q", raw)
+		}
+		idx, err := strconv.ParseUint(raw, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid array index: %w", err)
+		}
+		indices = append(indices, idx)
+	}
+	return indices, nil
 }
 
 // Copied from fastssz

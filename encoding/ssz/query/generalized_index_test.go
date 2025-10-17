@@ -30,6 +30,12 @@ func TestGetIndicesFromPath_FixedNestedContainer(t *testing.T) {
 			expectError:   false,
 		},
 		{
+			name:         "Value3 field",
+			path:         ".value3",
+			expectError:  true,
+			errorMessage: "field \"value3\" not found",
+		},
+		{
 			name:          "Basic field cannot descend",
 			path:          "value1.value1",
 			expectedIndex: 0,
