@@ -30,12 +30,12 @@ func GetGeneralizedIndexFromPath(info *sszInfo, path []PathElement) (uint64, err
 		return 0, errors.New("sszInfo is nil")
 	}
 
-	// if element list is empty, no generalized index can be computed.
+	// If path element list is empty, no generalized index can be computed.
 	if len(path) == 0 {
 		return 0, errors.New("cannot compute generalized index for an empty path")
 	}
 
-	// Start from the root generalized index
+	// Starting from the root generalized index
 	root := uint64(1)
 	currentInfo := info
 
@@ -51,14 +51,13 @@ func GetGeneralizedIndexFromPath(info *sszInfo, path []PathElement) (uint64, err
 			return 0, fmt.Errorf("cannot descend into basic type %s for path element %q", currentInfo.sszType, name)
 		}
 
-		// case: field name within a container - optionally with array indices
+		// Check that we are in a container to access fields
 		if currentInfo.sszType != Container {
 			return 0, fmt.Errorf("indexing requires a container field step first, got %s", currentInfo.sszType)
 		}
 
-		// checks if a path element is a length field
+		// Check if a path element is a length field
 		if element.length {
-			// Use the parsed inner name (without the len(...)) to resolve the field
 			root, currentInfo, err = processLengthField(currentInfo, element.name, root)
 			if err != nil {
 				return 0, err
@@ -66,10 +65,10 @@ func GetGeneralizedIndexFromPath(info *sszInfo, path []PathElement) (uint64, err
 			continue
 		}
 
-		// checks if a path element is an array index (e.g., field_name[5])
+		// Check if path element contains an array index (e.g., field_name[5])
 		var idx *uint64
 		if element.indices != nil && len(*element.indices) > 0 {
-			// note: shortcut extend to multi-dimensional arrays later
+			// Note: shortcut, extend to multi-dimensional arrays later
 			idx = &(*element.indices)[0]
 		}
 
@@ -79,16 +78,17 @@ func GetGeneralizedIndexFromPath(info *sszInfo, path []PathElement) (uint64, err
 			return 0, fmt.Errorf("container field %q not found: %w", element.name, err)
 		}
 
+		// Get the chunk count for the current container
 		chunkCount, err := getChunkCount(currentInfo)
 		if err != nil {
 			return 0, fmt.Errorf("chunk count error: %w", err)
 		}
 
+		// Update the generalized index to point to the specified field
 		root = updateRoot(root, 1, chunkCount, fieldPos)
 		currentInfo = fieldSsz
 
 		if idx != nil {
-			// index into list/vector/bitfield/bitvector
 			switch fieldSsz.sszType {
 			case List:
 				li, err := fieldSsz.ListInfo()
@@ -130,7 +130,7 @@ func GetGeneralizedIndexFromPath(info *sszInfo, path []PathElement) (uint64, err
 				if isBasicType(elem.sszType) {
 					multiplier = nextPowerOfTwo(vi.Length())
 					offset = *idx
-				} else { // cannot build a vector of complex elements
+				} else {
 					innerChunkCount, err := getChunkCount(fieldSsz)
 					if err != nil {
 						return 0, fmt.Errorf("chunk count error: %w", err)
@@ -138,7 +138,7 @@ func GetGeneralizedIndexFromPath(info *sszInfo, path []PathElement) (uint64, err
 					multiplier = nextPowerOfTwo(innerChunkCount)
 					offset = *idx
 				}
-				root = root*multiplier + offset
+				root = updateRoot(root, 1, multiplier, offset)
 				currentInfo = elem
 
 			case Bitlist:
@@ -159,6 +159,7 @@ func GetGeneralizedIndexFromPath(info *sszInfo, path []PathElement) (uint64, err
 					return 0, fmt.Errorf("chunk count error: %w", err)
 				}
 				root = updateRoot(root, 1, innerChunkCount, chunkPos)
+				// Bits element is not further descendable; set to basic to guard further steps
 				currentInfo = &sszInfo{sszType: Boolean, fixedSize: 1}
 
 			default:
@@ -171,8 +172,8 @@ func GetGeneralizedIndexFromPath(info *sszInfo, path []PathElement) (uint64, err
 	return root, nil
 }
 
-// processLengthField processes a length field (len(...)) and returns the corresponding SSZInfo
-// TODO: multi-dimensional arrays length?
+// processLengthField processes length field (len(...)) and returns the updated generalized index and SSZInfo
+// Length field is only valid for List and Bitlist types
 func processLengthField(info *sszInfo, name string, root uint64) (uint64, *sszInfo, error) {
 	// Retrieve the field position and SSZInfo for the
 	fieldPos, fieldSsz, err := getContainerFieldByName(info, name)
@@ -185,7 +186,7 @@ func processLengthField(info *sszInfo, name string, root uint64) (uint64, *sszIn
 		return 0, nil, fmt.Errorf("len() is only supported for List and Bitlist types, got %s", fieldSsz.sszType)
 	}
 
-	// root = root * base_index(=1) * pow2ceil(chunk_count(container)) + fieldPos
+	// Compute the chunk count for the field
 	chunkCount, err := getChunkCount(info)
 	if err != nil {
 		return 0, nil, fmt.Errorf("chunk count error: %w", err)
