@@ -17,6 +17,7 @@ type PathElement struct {
 }
 
 // ParsePath parses a raw path string into a slice of PathElements.
+// note: raw path MUST be provided in snake case.
 // 1. Supports dot notation for field access (e.g., "field1.field2").
 // 2. Supports array indexing using square brackets (e.g., "array_field[0]").
 // 3. Supports length access using len() notation (e.g., "len(array_field)").
@@ -62,7 +63,7 @@ func ParsePath(rawPath string) ([]PathElement, error) {
 				return []PathElement{}, err
 			}
 			// Only a single index is supported per token, e.g., "transactions[0]" is valid
-			// while "transactions[0][0]" rejected explicitly.
+			// while "transactions[0][0]" is rejected explicitly.
 			if len(indices) != 1 {
 				return []PathElement{}, fmt.Errorf("multiple indices not supported in token %q", processingField)
 			}
