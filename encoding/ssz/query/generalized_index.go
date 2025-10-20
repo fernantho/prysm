@@ -3,9 +3,6 @@ package query
 import (
 	"errors"
 	"fmt"
-	"regexp"
-	"strconv"
-	"strings"
 )
 
 const (
@@ -13,12 +10,6 @@ const (
 	bitsPerChunk  = 256
 	listBaseIndex = 2
 )
-
-type Element struct {
-	length  bool
-	name    string
-	indices *[]uint64
-}
 
 // GetGeneralizedIndexFromPath calculates the generalized index for a given path.
 // To calculate the generalized index, two inputs are needed:
@@ -58,15 +49,11 @@ func GetGeneralizedIndexFromPath(info *sszInfo, path []PathElement) (uint64, err
 
 		// Check if path element contains an array index (e.g., field_name[5])
 		var idx *uint64
-		if element.indices != nil && len(*element.indices) > 0 {
-			// Note: shortcut, extend to multi-dimensional arrays later
-			idx = &(*element.indices)[0]
-		}
 
 		// Retrieve the field position and SSZInfo for the field in the current container
-		fieldPos, fieldSsz, err := getContainerFieldByName(currentInfo, element.name)
+		fieldPos, fieldSsz, err := getContainerFieldByName(currentInfo, element.Name)
 		if err != nil {
-			return 0, fmt.Errorf("container field %q not found: %w", element.name, err)
+			return 0, fmt.Errorf("container field %q not found: %w", element.Name, err)
 		}
 
 		// Get the chunk count for the current container
@@ -80,7 +67,7 @@ func GetGeneralizedIndexFromPath(info *sszInfo, path []PathElement) (uint64, err
 		currentInfo = fieldSsz
 
 		// Check if a path element is a length field
-		if element.length {
+		if element.Length {
 			// Length field is only valid for List and Bitlist types
 			if fieldSsz.sszType != List && fieldSsz.sszType != Bitlist {
 				return 0, fmt.Errorf("len() is only supported for List and Bitlist types, got %s", fieldSsz.sszType)
@@ -276,73 +263,6 @@ func itemLengthFromInfo(info *sszInfo) uint64 {
 }
 
 // Helpers for input processing
-
-// processPathElement processes a path element string and returns an Element struct
-func processPathElement(elementStr string) (Element, error) {
-	element := Element{}
-
-	// Processing element string
-	processingField := elementStr
-
-	re := regexp.MustCompile(`^\s*len\s*\(\s*([^)]+?)\s*\)\s*$`)
-	matches := re.FindStringSubmatch(processingField)
-	if len(matches) == 2 {
-		element.length = true
-		// Extract the inner expression between len( and ) and continue parsing on that
-		processingField = matches[1]
-	}
-
-	// Default name is the full working string (may be updated below if it contains indices)
-	element.name = processingField
-
-	if strings.Contains(processingField, "[") {
-		// Split into field and indices, e.g., "array[0][1]" -> name:"array", indices:{0,1}
-		element.name = extractFieldName(processingField)
-		indices, err := extractArrayIndices(processingField)
-		if err != nil {
-			return Element{}, err
-		}
-		element.indices = &indices
-	}
-
-	return element, nil
-}
-
-// extractFieldName extracts the field name from a path element name (removes array indices)
-// For example: "field_name[5]" returns "field_name"
-func extractFieldName(name string) string {
-	if idx := strings.Index(name, "["); idx != -1 {
-		return name[:idx]
-	}
-	return strings.ToLower(name)
-}
-
-// extractArrayIndices returns every bracketed, non-negative index in the name,
-// e.g. "array[0][1]" -> []uint64{0, 1}. Errors if none are found or if any index is invalid.
-func extractArrayIndices(name string) ([]uint64, error) {
-	// Match all bracketed content, then we'll parse as unsigned to catch negatives explicitly
-	re := regexp.MustCompile(`\[\s*([^\]]+)\s*\]`)
-	matches := re.FindAllStringSubmatch(name, -1)
-
-	if len(matches) == 0 {
-		return nil, errors.New("no array indices found")
-	}
-
-	indices := make([]uint64, 0, len(matches))
-	for _, m := range matches {
-		raw := strings.TrimSpace(m[1])
-		// Forbid signs explicitly; we want a clear error similar to ParseUint's message
-		if strings.HasPrefix(raw, "-") {
-			return nil, fmt.Errorf("cannot process negative indices %q", raw)
-		}
-		idx, err := strconv.ParseUint(raw, 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("invalid array index: %w", err)
-		}
-		indices = append(indices, idx)
-	}
-	return indices, nil
-}
 
 // Copied from fastssz
 // Modified to return uint64
