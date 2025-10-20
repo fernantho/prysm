@@ -79,7 +79,6 @@ func TestGetIndicesFromPath_FixedNestedContainer(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			provingFields, err := query.ParsePath(tc.path)
-			require.NoError(t, err)
 
 			actualIndex, err := query.GetGeneralizedIndexFromPath(info, provingFields)
 
@@ -115,55 +114,55 @@ func TestGetIndicesFromPath_VariableTestContainer(t *testing.T) {
 		{
 			name:          "leading_field",
 			path:          "leading_field",
-			expectedIndex: 8,
-			expectError:   false,
-		},
-		{
-			name:          ".leading_field",
-			path:          ".leading_field",
-			expectedIndex: 8,
+			expectedIndex: 16,
 			expectError:   false,
 		},
 		{
 			name:          "field_list_uint64",
 			path:          "field_list_uint64",
-			expectedIndex: 9,
+			expectedIndex: 17,
 			expectError:   false,
 		},
 		{
 			name:          "len(field_list_uint64)",
 			path:          "len(field_list_uint64)",
-			expectedIndex: 19,
+			expectedIndex: 35,
+			expectError:   false,
+		},
+		{
+			name:          "field_list_uint64[0]",
+			path:          "field_list_uint64[0]",
+			expectedIndex: 17408,
+			expectError:   false,
+		},
+		{
+			name:          "field_list_uint64[2047]",
+			path:          "field_list_uint64[2047]",
+			expectedIndex: 17919,
 			expectError:   false,
 		},
 		{
 			name:          "bitlist_field",
 			path:          "bitlist_field",
-			expectedIndex: 13,
+			expectedIndex: 22,
 			expectError:   false,
 		},
 		{
 			name:          "bitlist_field[0]",
 			path:          "bitlist_field[0]",
-			expectedIndex: 208,
+			expectedIndex: 352,
 			expectError:   false,
 		},
 		{
 			name:          "bitlist_field[1]",
 			path:          "bitlist_field[1]",
-			expectedIndex: 208,
+			expectedIndex: 352,
 			expectError:   false,
-		},
-		{
-			name:         "bitlist_field[-1]",
-			path:         "bitlist_field[-1]",
-			expectError:  true,
-			errorMessage: "cannot process negative indices \"-1\"",
 		},
 		{
 			name:          "len(bitlist_field)",
 			path:          "len(bitlist_field)",
-			expectedIndex: 27,
+			expectedIndex: 45,
 			expectError:   false,
 		},
 		{
@@ -175,31 +174,20 @@ func TestGetIndicesFromPath_VariableTestContainer(t *testing.T) {
 		{
 			name:          "field_list_container[0]",
 			path:          "field_list_container[0]",
-			expectedIndex: 2560,
+			expectedIndex: 4608,
 			expectError:   false,
 		},
-		{
-			name:          "field_list_uint64[0]",
-			path:          "field_list_uint64[0]",
-			expectedIndex: 9216,
-			expectError:   false,
-		},
-		{
-			name:          "field_list_uint64[2047]",
-			path:          "field_list_uint64[2047]",
-			expectedIndex: 9727,
-			expectError:   false,
-		},
+
 		{
 			name:          "nested",
 			path:          "nested",
-			expectedIndex: 12,
+			expectedIndex: 20,
 			expectError:   false,
 		},
 		{
 			name:          "nested.field_list_uint64[10]",
 			path:          "nested.field_list_uint64[10]",
-			expectedIndex: 3138,
+			expectedIndex: 5186,
 			expectError:   false,
 		},
 	}

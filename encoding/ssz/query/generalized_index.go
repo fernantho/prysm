@@ -31,15 +31,11 @@ func GetGeneralizedIndexFromPath(info *sszInfo, path []PathElement) (uint64, err
 	currentInfo := info
 
 	for _, pathElement := range path {
-		name := pathElement.Name
-		element, err := processPathElement(name)
-		if err != nil {
-			return 0, err
-		}
+		element := pathElement
 
 		// If we descend to a basic type, the path cannot continue further
 		if isBasicType(currentInfo.sszType) {
-			return 0, fmt.Errorf("cannot descend into basic type %s for path element %q", currentInfo.sszType, name)
+			return 0, fmt.Errorf("cannot descend into basic type %s for path element %q", currentInfo.sszType, pathElement.Name)
 		}
 
 		// Check that we are in a container to access fields
@@ -110,19 +106,22 @@ func GetGeneralizedIndexFromPath(info *sszInfo, path []PathElement) (uint64, err
 				if err != nil {
 					return 0, fmt.Errorf("vector element error: %w", err)
 				}
-				// Compute chunk position for the element
-				var chunkPos uint64
+				var (
+					offset     uint64
+					multiplier uint64
+				)
 				if isBasicType(elem.sszType) {
-					start := *element.Index * itemLengthFromInfo(elem)
-					chunkPos = start / bytesPerChunk
+					multiplier = nextPowerOfTwo(vi.Length())
+					offset = *element.Index
 				} else {
-					chunkPos = *element.Index
+					innerChunkCount, err := getChunkCount(fieldSsz)
+					if err != nil {
+						return 0, fmt.Errorf("chunk count error: %w", err)
+					}
+					multiplier = nextPowerOfTwo(innerChunkCount)
+					offset = *element.Index
 				}
-				innerChunkCount, err := getChunkCount(fieldSsz)
-				if err != nil {
-					return 0, fmt.Errorf("chunk count error: %w", err)
-				}
-				root = updateRoot(root, 1, innerChunkCount, chunkPos)
+				root = updateRoot(root, 1, multiplier, offset)
 				currentInfo = elem
 
 			case Bitlist:
