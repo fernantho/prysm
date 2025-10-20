@@ -16,6 +16,11 @@ type PathElement struct {
 	Index *uint64
 }
 
+// ParsePath parses a raw path string into a slice of PathElements.
+// 1. Supports dot notation for field access (e.g., "field1.field2").
+// 2. Supports array indexing using square brackets (e.g., "array_field[0]").
+// 3. Supports length access using len() notation (e.g., "len(array_field)").
+// 4. Handles leading dots and validates path format.
 func ParsePath(rawPath string) ([]PathElement, error) {
 	// We use dot notation, so we split the path by '.'.
 	rawElements := strings.Split(rawPath, ".")
@@ -34,64 +39,41 @@ func ParsePath(rawPath string) ([]PathElement, error) {
 			return nil, errors.New("invalid path: consecutive dots or trailing dot")
 		}
 
-		fieldName := elem
-		var index *uint64
+		var pathElement PathElement
+		// Processing element string
+		processingField := elem
 
-		// Check for index notation, e.g., "field[0]"
-		if strings.Contains(elem, "[") {
-			parts := strings.SplitN(elem, "[", 2)
-			if len(parts) != 2 {
-				return nil, fmt.Errorf("invalid index notation in path element %s", elem)
-			}
-
-			fieldName = parts[0]
-			indexPart := strings.TrimSuffix(parts[1], "]")
-			if indexPart == "" {
-				return nil, errors.New("index cannot be empty")
-			}
-
-			indexValue, err := strconv.ParseUint(indexPart, 10, 64)
-			if err != nil {
-				return nil, fmt.Errorf("invalid index in path element %s: %w", elem, err)
-			}
-			index = &indexValue
+		re := regexp.MustCompile(`^\s*len\s*\(\s*([^)]+?)\s*\)\s*$`)
+		matches := re.FindStringSubmatch(processingField)
+		if len(matches) == 2 {
+			pathElement.Length = true
+			// Extract the inner expression between len( and ) and continue parsing on that
+			processingField = matches[1]
 		}
 
-		path = append(path, PathElement{Name: fieldName, Index: index})
+		// Default name is the full working string (may be updated below if it contains indices)
+		pathElement.Name = processingField
+
+		if strings.Contains(processingField, "[") {
+			// Split into field and indices, e.g., "array[0][1]" -> name:"array", indices:{0,1}
+			pathElement.Name = extractFieldName(processingField)
+			indices, err := extractArrayIndices(processingField)
+			if err != nil {
+				return []PathElement{}, err
+			}
+			// Only a single index is supported per token, e.g., "transactions[0]" is valid
+			// while "transactions[0][0]" rejected explicitly.
+			if len(indices) != 1 {
+				return []PathElement{}, fmt.Errorf("multiple indices not supported in token %q", processingField)
+			}
+			pathElement.Index = &indices[0]
+
+		}
+
+		path = append(path, pathElement)
 	}
 
 	return path, nil
-}
-
-// processPathElement processes a path element string and returns a PathElement struct
-func processPathElement(elementStr string) (PathElement, error) {
-	element := PathElement{}
-
-	// Processing element string
-	processingField := elementStr
-
-	re := regexp.MustCompile(`^\s*len\s*\(\s*([^)]+?)\s*\)\s*$`)
-	matches := re.FindStringSubmatch(processingField)
-	if len(matches) == 2 {
-		element.Length = true
-		// Extract the inner expression between len( and ) and continue parsing on that
-		processingField = matches[1]
-	}
-
-	// Default name is the full working string (may be updated below if it contains indices)
-	element.Name = processingField
-
-	if strings.Contains(processingField, "[") {
-		// Split into field and indices, e.g., "array[0][1]" -> name:"array", indices:{0,1}
-		element.Name = extractFieldName(processingField)
-		indices, err := extractArrayIndices(processingField)
-		if err != nil {
-			return PathElement{}, err
-		}
-		element.Index = &indices[0] // For now, only support single index
-	}
-
-	return element, nil
 }
 
 // extractFieldName extracts the field name from a path element name (removes array indices)

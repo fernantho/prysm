@@ -34,6 +34,11 @@ func TestParsePath(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name:    "negative index in array path",
+			path:    ".data.target.root[-1]",
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
