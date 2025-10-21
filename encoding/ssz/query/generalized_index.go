@@ -84,6 +84,9 @@ func GetGeneralizedIndexFromPath(info *sszInfo, path []PathElement) (uint64, err
 				if err != nil {
 					return 0, fmt.Errorf("list element error: %w", err)
 				}
+				if *element.Index >= li.Limit() {
+					return 0, fmt.Errorf("index %d out of bounds for list with limit %d", *element.Index, li.Limit())
+				}
 				// Compute chunk position for the element
 				var chunkPos uint64
 				if isBasicType(elem.sszType) {
@@ -108,6 +111,9 @@ func GetGeneralizedIndexFromPath(info *sszInfo, path []PathElement) (uint64, err
 				elem, err := vi.Element()
 				if err != nil {
 					return 0, fmt.Errorf("vector element error: %w", err)
+				}
+				if *element.Index >= vi.Length() {
+					return 0, fmt.Errorf("index %d out of bounds for vector with length %d", *element.Index, vi.Length())
 				}
 				var chunkPos uint64
 				if isBasicType(elem.sszType) {
