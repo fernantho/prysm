@@ -17,14 +17,16 @@ type PathElement struct {
 }
 
 // ParsePath parses a raw path string into a slice of PathElements.
-// note: raw path MUST be provided in snake case.
+// note: field names are stored in snake_case format. rawPath is enforced to be snake_case.
 // 1. Supports dot notation for field access (e.g., "field1.field2").
 // 2. Supports array indexing using square brackets (e.g., "array_field[0]").
 // 3. Supports length access using len() notation (e.g., "len(array_field)").
 // 4. Handles leading dots and validates path format.
 func ParsePath(rawPath string) ([]PathElement, error) {
+	// Enforce snake_case for field names
+	snakeCasePath := ToSnakeCase(rawPath)
 	// We use dot notation, so we split the path by '.'.
-	rawElements := strings.Split(rawPath, ".")
+	rawElements := strings.Split(snakeCasePath, ".")
 	if len(rawElements) == 0 {
 		return nil, errors.New("empty path provided")
 	}
@@ -62,7 +64,8 @@ func ParsePath(rawPath string) ([]PathElement, error) {
 			if err != nil {
 				return []PathElement{}, err
 			}
-			// Only a single index is supported per token, e.g., "transactions[0]" is valid
+			// Although extractArrayIndices supports multiple indices,
+			// only a single index is supported per PathElement, e.g., "transactions[0]" is valid
 			// while "transactions[0][0]" is rejected explicitly.
 			if len(indices) != 1 {
 				return []PathElement{}, fmt.Errorf("multiple indices not supported in token %q", processingField)
@@ -111,4 +114,13 @@ func extractArrayIndices(name string) ([]uint64, error) {
 		indices = append(indices, idx)
 	}
 	return indices, nil
+}
+
+var matchFirstCap = regexp.MustCompile("(.)([A-Z][a-z]+)")
+var matchAllCap = regexp.MustCompile("([a-z0-9])([A-Z])")
+
+func ToSnakeCase(str string) string {
+	snake := matchFirstCap.ReplaceAllString(str, "${1}_${2}")
+	snake = matchAllCap.ReplaceAllString(snake, "${1}_${2}")
+	return strings.ToLower(snake)
 }
