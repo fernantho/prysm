@@ -16,7 +16,7 @@ const (
 // 1. The sszInfo of the root info, to be able to navigate the SSZ structure
 // 2. The path to the field (e.g., "field_a.field_b[3].field_c")
 // It walks the path step by step, updating the generalized index at each step.
-func GetGeneralizedIndexFromPath(info *sszInfo, path []PathElement) (uint64, error) {
+func GetGeneralizedIndexFromPath(info *SszInfo, path []PathElement) (uint64, error) {
 	if info == nil {
 		return 0, errors.New("sszInfo is nil")
 	}
@@ -67,7 +67,7 @@ func GetGeneralizedIndexFromPath(info *sszInfo, path []PathElement) (uint64, err
 				return 0, fmt.Errorf("len() is only supported for List and Bitlist types, got %s", fieldSsz.sszType)
 			}
 			// Length is a uint64 per SSZ spec
-			currentInfo = &sszInfo{sszType: Uint64}
+			currentInfo = &SszInfo{sszType: Uint64}
 			// root = root * base_index * pow2ceil(chunk_count(container)) + fieldPos
 			root = root*2 + 1
 			continue
@@ -142,7 +142,7 @@ func GetGeneralizedIndexFromPath(info *sszInfo, path []PathElement) (uint64, err
 				root = root*listBaseIndex*nextPowerOfTwo(innerChunkCount) + chunkPos
 
 				// Bits element is not further descendable; set to basic to guard further steps
-				currentInfo = &sszInfo{sszType: Boolean}
+				currentInfo = &SszInfo{sszType: Boolean}
 
 			case Bitvector:
 				chunkPos := *element.Index / bitsPerChunk
@@ -154,7 +154,7 @@ func GetGeneralizedIndexFromPath(info *sszInfo, path []PathElement) (uint64, err
 				root = root*nextPowerOfTwo(innerChunkCount) + chunkPos
 
 				// Bits element is not further descendable; set to basic to guard further steps
-				currentInfo = &sszInfo{sszType: Boolean}
+				currentInfo = &SszInfo{sszType: Boolean}
 
 			default:
 				return 0, fmt.Errorf("indexing not supported for type %s", fieldSsz.sszType)
@@ -176,7 +176,7 @@ func isBasicType(sszType SSZType) bool {
 }
 
 // getChunkCount returns the number of chunks for the given SSZInfo (equivalent to chunk_count in the spec)
-func getChunkCount(info *sszInfo) (uint64, error) {
+func getChunkCount(info *SszInfo) (uint64, error) {
 	switch info.sszType {
 	case Uint8, Uint16, Uint32, Uint64, Boolean:
 		return 1, nil
@@ -228,7 +228,7 @@ func getChunkCount(info *sszInfo) (uint64, error) {
 }
 
 // getContainerFieldByName finds a container field by name.
-func getContainerFieldByName(info *sszInfo, fieldName string) (uint64, *sszInfo, error) {
+func getContainerFieldByName(info *SszInfo, fieldName string) (uint64, *SszInfo, error) {
 	containerInfo, err := info.ContainerInfo()
 	if err != nil {
 		return 0, nil, err
@@ -252,7 +252,7 @@ func getContainerFieldByName(info *sszInfo, fieldName string) (uint64, *sszInfo,
 // size of the type in bytes. For complex types (containers, lists, vectors), it returns
 // bytesPerChunk which represents the standard SSZ chunk size (32 bytes) used for
 // Merkle tree operations in the SSZ serialization format.
-func itemLengthFromInfo(info *sszInfo) uint64 {
+func itemLengthFromInfo(info *SszInfo) uint64 {
 	if isBasicType(info.sszType) {
 		return info.Size()
 	}
