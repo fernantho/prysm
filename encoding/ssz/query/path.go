@@ -26,9 +26,6 @@ func ParsePath(rawPath string) ([]PathElement, error) {
 	// Enforce snake_case for field names
 	snakeCasePath := ToSnakeCase(rawPath)
 	rawElements := strings.Split(snakeCasePath, ".")
-	if len(rawElements) == 0 {
-		return nil, errors.New("empty path provided")
-	}
 
 	if rawElements[0] == "" {
 		// Remove leading dot if present
