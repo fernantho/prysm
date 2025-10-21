@@ -25,7 +25,6 @@ type PathElement struct {
 func ParsePath(rawPath string) ([]PathElement, error) {
 	// Enforce snake_case for field names
 	snakeCasePath := ToSnakeCase(rawPath)
-	// We use dot notation, so we split the path by '.'.
 	rawElements := strings.Split(snakeCasePath, ".")
 	if len(rawElements) == 0 {
 		return nil, errors.New("empty path provided")
