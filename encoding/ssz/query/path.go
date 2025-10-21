@@ -82,7 +82,7 @@ func extractFieldName(name string) string {
 	if idx := strings.Index(name, "["); idx != -1 {
 		return name[:idx]
 	}
-	return strings.ToLower(name)
+	return name
 }
 
 // extractArrayIndices returns every bracketed, non-negative index in the name,

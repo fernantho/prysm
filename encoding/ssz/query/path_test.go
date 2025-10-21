@@ -15,6 +15,11 @@ func TestParsePath(t *testing.T) {
 		wantErr  bool
 	}{
 		{
+			name:    "cannot provide consecutive dots in raw path",
+			path:    "data..target.root",
+			wantErr: true,
+		},
+		{
 			name: "simple nested path",
 			path: "data.target.root",
 			expected: []query.PathElement{
@@ -39,6 +44,11 @@ func TestParsePath(t *testing.T) {
 			path:    ".data.target.root[-1]",
 			wantErr: true,
 		},
+		{
+			name:    "multidimensional array index in path",
+			path:    ".data.target.root[0][1]",
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -46,7 +56,7 @@ func TestParsePath(t *testing.T) {
 			parsedPath, err := query.ParsePath(tt.path)
 
 			if tt.wantErr {
-				require.NotNil(t, err, "Expected error but got none")
+				require.NotNil(t, err, "Expected error did not occur")
 				return
 			}
 
