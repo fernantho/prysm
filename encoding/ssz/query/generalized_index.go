@@ -13,7 +13,7 @@ const (
 
 // GetGeneralizedIndexFromPath calculates the generalized index for a given path.
 // To calculate the generalized index, two inputs are needed:
-// 1. The sszInfo of the root info, to be able to navigate the SSZ structure
+// 1. The sszInfo of the root object, to be able to navigate the SSZ structure
 // 2. The path to the field (e.g., "field_a.field_b[3].field_c")
 // It walks the path step by step, updating the generalized index at each step.
 func GetGeneralizedIndexFromPath(info *SszInfo, path []PathElement) (uint64, error) {
