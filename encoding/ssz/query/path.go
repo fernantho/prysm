@@ -16,6 +16,10 @@ type PathElement struct {
 	Index *uint64
 }
 
+var arrayIndexRegex = regexp.MustCompile(`\[\s*([^\]]+)\s*\]`)
+
+var lengthRegex = regexp.MustCompile(`^\s*len\s*\(\s*([^)]+?)\s*\)\s*$`)
+
 // ParsePath parses a raw path string into a slice of PathElements.
 // note: field names are stored in snake case format. rawPath has to be provided in snake case.
 // 1. Supports dot notation for field access (e.g., "field1.field2").
@@ -40,8 +44,7 @@ func ParsePath(rawPath string) ([]PathElement, error) {
 		processingField := elem
 		var pathElement PathElement
 
-		re := regexp.MustCompile(`^\s*len\s*\(\s*([^)]+?)\s*\)\s*$`)
-		matches := re.FindStringSubmatch(processingField)
+		matches := lengthRegex.FindStringSubmatch(processingField)
 		if len(matches) == 2 {
 			pathElement.Length = true
 			// Extract the inner expression between len( and ) and continue parsing on that
@@ -83,14 +86,11 @@ func extractFieldName(name string) string {
 	return name
 }
 
-var arrayIndexRegex = regexp.MustCompile(`\[\s*([^\]]+)\s*\]`)
-
 // extractArrayIndices returns every bracketed, non-negative index in the name,
 // e.g. "array[0][1]" -> []uint64{0, 1}. Errors if none are found or if any index is invalid.
 func extractArrayIndices(name string) ([]uint64, error) {
 	// Match all bracketed content, then we'll parse as unsigned to catch negatives explicitly
-	re := arrayIndexRegex
-	matches := re.FindAllStringSubmatch(name, -1)
+	matches := arrayIndexRegex.FindAllStringSubmatch(name, -1)
 
 	if len(matches) == 0 {
 		return nil, errors.New("no array indices found")
