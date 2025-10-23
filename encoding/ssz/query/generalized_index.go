@@ -31,11 +31,6 @@ func GetGeneralizedIndexFromPath(info *SszInfo, path []PathElement) (uint64, err
 	for _, pathElement := range path {
 		element := pathElement
 
-		// If we descend to a basic type, the path cannot continue further
-		if isBasicType(currentInfo.sszType) {
-			return 0, fmt.Errorf("cannot descend into basic type %s for path element %s", currentInfo.sszType, pathElement.Name)
-		}
-
 		// Check that we are in a container to access fields
 		if currentInfo.sszType != Container {
 			return 0, fmt.Errorf("indexing requires a container field step first, got %s", currentInfo.sszType)

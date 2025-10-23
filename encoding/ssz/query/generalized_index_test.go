@@ -40,7 +40,7 @@ func TestGetIndicesFromPath_FixedNestedContainer(t *testing.T) {
 			path:          "value1.value1",
 			expectedIndex: 0,
 			expectError:   true,
-			errorMessage:  "cannot descend into basic type",
+			errorMessage:  "indexing requires a container field step first, got Uint64",
 		},
 		{
 			name:          "Indexing without container step",
