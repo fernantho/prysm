@@ -62,7 +62,7 @@ func ParsePath(rawPath string) ([]PathElement, error) {
 			// only a single index is supported per PathElement, e.g., "transactions[0]" is valid
 			// while "transactions[0][0]" is rejected explicitly.
 			if len(indices) != 1 {
-				return []PathElement{}, fmt.Errorf("multiple indices not supported in token %q", processingField)
+				return nil, fmt.Errorf("multiple indices not supported in token %s", processingField)
 			}
 			pathElement.Index = &indices[0]
 
@@ -99,10 +99,6 @@ func extractArrayIndices(name string) ([]uint64, error) {
 	indices := make([]uint64, 0, len(matches))
 	for _, m := range matches {
 		raw := strings.TrimSpace(m[1])
-		// Forbid signs explicitly; we want a clear error similar to ParseUint's message
-		if strings.HasPrefix(raw, "-") {
-			return nil, fmt.Errorf("cannot process negative indices %q", raw)
-		}
 		idx, err := strconv.ParseUint(raw, 10, 64)
 		if err != nil {
 			return nil, fmt.Errorf("invalid array index: %w", err)
