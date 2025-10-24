@@ -124,7 +124,10 @@ func getContainerFieldByName(info *SszInfo, fieldName string) (uint64, *SszInfo,
 
 // calculateLengthGeneralizedIndex calculates the generalized index for a length field.
 // note: length fields are only valid for List and Bitlist types. Multi-dimensional arrays are not supported.
-func calculateLengthGeneralizedIndex(fieldSsz *SszInfo, element PathElement, currentIndex uint64) (*SszInfo, uint64, error) {
+// Returns:
+// - its descendant SSZInfo (length field i.e. uint64)
+// - its generalized index.
+func calculateLengthGeneralizedIndex(fieldSsz *SszInfo, element PathElement, parentIndex uint64) (*SszInfo, uint64, error) {
 	if element.Index != nil {
 		return nil, 0, fmt.Errorf("len() is not supported for indexed elements (multi-dimensional arrays)")
 	}
@@ -134,12 +137,15 @@ func calculateLengthGeneralizedIndex(fieldSsz *SszInfo, element PathElement, cur
 	}
 	// Length is a uint64 per SSZ spec
 	currentInfo := &SszInfo{sszType: Uint64}
-	lengthIndex := currentIndex*2 + 1
+	lengthIndex := parentIndex*2 + 1
 	return currentInfo, lengthIndex, nil
 }
 
 // calculateListGeneralizedIndex calculates the generalized index for a list element.
-func calculateListGeneralizedIndex(fieldSsz *SszInfo, element PathElement, currentIndex uint64) (*SszInfo, uint64, error) {
+// Returns:
+// - its descendant SSZInfo (list element)
+// - its generalized index.
+func calculateListGeneralizedIndex(fieldSsz *SszInfo, element PathElement, parentIndex uint64) (*SszInfo, uint64, error) {
 	li, err := fieldSsz.ListInfo()
 	if err != nil {
 		return nil, 0, fmt.Errorf("list info error: %w", err)
@@ -164,14 +170,17 @@ func calculateListGeneralizedIndex(fieldSsz *SszInfo, element PathElement, curre
 		return nil, 0, fmt.Errorf("chunk count error: %w", err)
 	}
 	// root = root * base_index * pow2ceil(chunk_count(container)) + fieldPos
-	listIndex := currentIndex*listBaseIndex*nextPowerOfTwo(innerChunkCount) + chunkPos
+	listIndex := parentIndex*listBaseIndex*nextPowerOfTwo(innerChunkCount) + chunkPos
 	currentInfo := elem
 
 	return currentInfo, listIndex, nil
 }
 
 // calculateVectorGeneralizedIndex calculates the generalized index for a vector element.
-func calculateVectorGeneralizedIndex(fieldSsz *SszInfo, element PathElement, currentIndex uint64) (*SszInfo, uint64, error) {
+// Returns:
+// - its descendant SSZInfo (vector element)
+// - its generalized index.
+func calculateVectorGeneralizedIndex(fieldSsz *SszInfo, element PathElement, parentIndex uint64) (*SszInfo, uint64, error) {
 	vi, err := fieldSsz.VectorInfo()
 	if err != nil {
 		return nil, 0, fmt.Errorf("vector info error: %w", err)
@@ -194,21 +203,24 @@ func calculateVectorGeneralizedIndex(fieldSsz *SszInfo, element PathElement, cur
 	if err != nil {
 		return nil, 0, fmt.Errorf("chunk count error: %w", err)
 	}
-	vectorIndex := currentIndex*nextPowerOfTwo(innerChunkCount) + chunkPos
+	vectorIndex := parentIndex*nextPowerOfTwo(innerChunkCount) + chunkPos
 
 	currentInfo := elem
 	return currentInfo, vectorIndex, nil
 }
 
 // calculateBitlistGeneralizedIndex calculates the generalized index for a bitlist element.
-func calculateBitlistGeneralizedIndex(fieldSsz *SszInfo, element PathElement, currentIndex uint64) (*SszInfo, uint64, error) {
+// Returns:
+// - its descendant SSZInfo (bitlist element i.e. a boolean)
+// - its generalized index.
+func calculateBitlistGeneralizedIndex(fieldSsz *SszInfo, element PathElement, parentIndex uint64) (*SszInfo, uint64, error) {
 	// Bits packed into 256-bit chunks; select the chunk containing the bit
 	chunkPos := *element.Index / ssz.BitsPerChunk
 	innerChunkCount, err := getChunkCount(fieldSsz)
 	if err != nil {
 		return nil, 0, fmt.Errorf("chunk count error: %w", err)
 	}
-	bitlistIndex := currentIndex*listBaseIndex*nextPowerOfTwo(innerChunkCount) + chunkPos
+	bitlistIndex := parentIndex*listBaseIndex*nextPowerOfTwo(innerChunkCount) + chunkPos
 
 	// Bits element is not further descendable; set to basic to guard further steps
 	currentInfo := &SszInfo{sszType: Boolean}
@@ -216,13 +228,16 @@ func calculateBitlistGeneralizedIndex(fieldSsz *SszInfo, element PathElement, cu
 }
 
 // calculateBitvectorGeneralizedIndex calculates the generalized index for a bitvector element.
-func calculateBitvectorGeneralizedIndex(fieldSsz *SszInfo, element PathElement, currentIndex uint64) (*SszInfo, uint64, error) {
+// Returns:
+// - its descendant SSZInfo (bitvector element i.e. a boolean)
+// - its generalized index.
+func calculateBitvectorGeneralizedIndex(fieldSsz *SszInfo, element PathElement, parentIndex uint64) (*SszInfo, uint64, error) {
 	chunkPos := *element.Index / ssz.BitsPerChunk
 	innerChunkCount, err := getChunkCount(fieldSsz)
 	if err != nil {
 		return nil, 0, fmt.Errorf("chunk count error: %w", err)
 	}
-	bitvectorIndex := currentIndex*nextPowerOfTwo(innerChunkCount) + chunkPos
+	bitvectorIndex := parentIndex*nextPowerOfTwo(innerChunkCount) + chunkPos
 
 	// Bits element is not further descendable; set to basic to guard further steps
 	currentInfo := &SszInfo{sszType: Boolean}
