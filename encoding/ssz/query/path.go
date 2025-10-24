@@ -45,6 +45,10 @@ func ParsePath(rawPath string) ([]PathElement, error) {
 		var pathElement PathElement
 
 		matches := lengthRegex.FindStringSubmatch(processingField)
+		// FindStringSubmatch matches a whole string like "len(field_name)" and its inner expression.
+		// For a path element to be a length query, len(matches) should be 2:
+		// 1. Full match: "len(field_name)"
+		// 2. Inner expression: "field_name"
 		if len(matches) == 2 {
 			pathElement.Length = true
 			// Extract the inner expression between len( and ) and continue parsing on that
