@@ -10,14 +10,20 @@ import (
 
 // PathElement represents a single element in a path.
 type PathElement struct {
-	Length bool
-	Name   string
+	Name string
 	// [Optional] Index for List/Vector elements
 	Index *uint64
 }
 
+type Path struct {
+	Length   bool
+	Elements []PathElement
+}
+
+// Matches an array index expression like [123] or [ foo ] and captures the inner content without the brackets.
 var arrayIndexRegex = regexp.MustCompile(`\[\s*([^\]]+)\s*\]`)
 
+// Matches an entire string that’s a len(<expr>) call (whitespace flexible), capturing the inner expression and disallowing any trailing characters.
 var lengthRegex = regexp.MustCompile(`^\s*len\s*\(\s*([^)]+?)\s*\)\s*$`)
 
 // ParsePath parses a raw path string into a slice of PathElements.
@@ -26,8 +32,24 @@ var lengthRegex = regexp.MustCompile(`^\s*len\s*\(\s*([^)]+?)\s*\)\s*$`)
 // 2. Supports array indexing using square brackets (e.g., "array_field[0]").
 // 3. Supports length access using len() notation (e.g., "len(array_field)").
 // 4. Handles leading dots and validates path format.
-func ParsePath(rawPath string) ([]PathElement, error) {
-	rawElements := strings.Split(rawPath, ".")
+func ParsePath(rawPath string) (Path, error) {
+	var rawElements []string
+	var processedPath Path
+
+	matches := lengthRegex.FindStringSubmatch(rawPath)
+
+	// FindStringSubmatch matches a whole string like "len(field_name)" and its inner expression.
+	// For a path element to be a length query, len(matches) should be 2:
+	// 1. Full match: "len(field_name)"
+	// 2. Inner expression: "field_name"
+	if len(matches) == 2 {
+		processedPath.Length = true
+		// If we have o¡found a len() expression, we only want to parse its inner expression.
+		rawElements = strings.Split(matches[1], ".")
+	} else {
+		// Normal path parsing
+		rawElements = strings.Split(rawPath, ".")
+	}
 
 	if rawElements[0] == "" {
 		// Remove leading dot if present
@@ -37,23 +59,12 @@ func ParsePath(rawPath string) ([]PathElement, error) {
 	var path []PathElement
 	for _, elem := range rawElements {
 		if elem == "" {
-			return nil, errors.New("invalid path: consecutive dots or trailing dot")
+			return Path{}, errors.New("invalid path: consecutive dots or trailing dot")
 		}
 
 		// Processing element string
 		processingField := elem
 		var pathElement PathElement
-
-		matches := lengthRegex.FindStringSubmatch(processingField)
-		// FindStringSubmatch matches a whole string like "len(field_name)" and its inner expression.
-		// For a path element to be a length query, len(matches) should be 2:
-		// 1. Full match: "len(field_name)"
-		// 2. Inner expression: "field_name"
-		if len(matches) == 2 {
-			pathElement.Length = true
-			// Extract the inner expression between len( and ) and continue parsing on that
-			processingField = matches[1]
-		}
 
 		// Default name is the full working string (may be updated below if it contains indices)
 		pathElement.Name = processingField
@@ -63,13 +74,13 @@ func ParsePath(rawPath string) ([]PathElement, error) {
 			pathElement.Name = extractFieldName(processingField)
 			indices, err := extractArrayIndices(processingField)
 			if err != nil {
-				return nil, err
+				return Path{}, err
 			}
 			// Although extractArrayIndices supports multiple indices,
 			// only a single index is supported per PathElement, e.g., "transactions[0]" is valid
 			// while "transactions[0][0]" is rejected explicitly.
 			if len(indices) != 1 {
-				return nil, fmt.Errorf("multiple indices not supported in token %s", processingField)
+				return Path{}, fmt.Errorf("multiple indices not supported in token %s", processingField)
 			}
 			pathElement.Index = &indices[0]
 
@@ -78,7 +89,8 @@ func ParsePath(rawPath string) ([]PathElement, error) {
 		path = append(path, pathElement)
 	}
 
-	return path, nil
+	processedPath.Elements = path
+	return processedPath, nil
 }
 
 // extractFieldName extracts the field name from a path element name (removes array indices)
