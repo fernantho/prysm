@@ -63,7 +63,7 @@ func ParsePath(rawPath string) (Path, error) {
 	var pathElements []PathElement
 	for _, elem := range rawElements {
 		if elem == "" {
-			return Path{}, errors.New("invalid pathElements: consecutive dots or trailing dot")
+			return Path{}, errors.New("invalid path: consecutive dots or trailing dot")
 		}
 
 		// Processing element string
