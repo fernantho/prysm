@@ -333,3 +333,114 @@ func TestQueryBeaconBlock(t *testing.T) {
 		})
 	}
 }
+
+/*
+ ******************************************************************************************
+ ******************************************************************************************
+ ******************************************************************************************
+ */
+
+func TestQueryBeaconState_MerkleProofs(t *testing.T) {
+	ctx := context.Background()
+
+	st, err := util.NewBeaconStateElectra()
+	require.NoError(t, err)
+	stateRoot, err := st.HashTreeRoot(ctx)
+	require.NoError(t, err)
+
+	tests := []struct {
+		path          string
+		expectedValue []byte
+	}{
+		{
+			path: ".slot",
+			expectedValue: func() []byte {
+				slot := st.Slot()
+				result, _ := slot.MarshalSSZ()
+				return result
+			}(),
+		},
+		// {
+		// 	path: ".latest_block_header",
+		// 	expectedValue: func() []byte {
+		// 		header := st.LatestBlockHeader()
+		// 		result, _ := header.MarshalSSZ()
+		// 		return result
+		// 	}(),
+		// },
+		// {
+		// 	path: ".validators",
+		// 	expectedValue: func() []byte {
+		// 		b := make([]byte, 0)
+		// 		validators := st.Validators()
+		// 		for _, v := range validators {
+		// 			vBytes, _ := v.MarshalSSZ()
+		// 			b = append(b, vBytes...)
+		// 		}
+		// 		return b
+
+		// 	}(),
+		// },
+		// {
+		// 	path: ".validators[0]",
+		// 	expectedValue: func() []byte {
+		// 		v, _ := st.ValidatorAtIndex(0)
+		// 		result, _ := v.MarshalSSZ()
+		// 		return result
+		// 	}(),
+		// },
+		// {
+		// 	path: ".validators[0].withdrawal_credentials",
+		// 	expectedValue: func() []byte {
+		// 		v, _ := st.ValidatorAtIndex(0)
+		// 		return v.WithdrawalCredentials
+		// 	}(),
+		// },
+		// {
+		// 	path: ".validators[0].effective_balance",
+		// 	expectedValue: func() []byte {
+		// 		v, _ := st.ValidatorAtIndex(0)
+		// 		b := make([]byte, 8)
+		// 		binary.LittleEndian.PutUint64(b, uint64(v.EffectiveBalance))
+		// 		return b
+		// 	}(),
+		// },
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			chainService := &chainMock.ChainService{Optimistic: false, FinalizedRoots: make(map[[32]byte]bool)}
+			s := &Server{
+				OptimisticModeFetcher: chainService,
+				FinalizationFetcher:   chainService,
+				Stater: &testutil.MockStater{
+					BeaconStateRoot: stateRoot[:],
+					BeaconState:     st,
+				},
+			}
+
+			requestBody := &structs.SSZQueryRequest{
+				Query: tt.path,
+			}
+			var buf bytes.Buffer
+			require.NoError(t, json.NewEncoder(&buf).Encode(requestBody))
+
+			request := httptest.NewRequest(http.MethodPost, "http://example.com/prysm/v1/beacon/states/{state_id}/query", &buf)
+			request.SetPathValue("state_id", "head")
+			writer := httptest.NewRecorder()
+			writer.Body = &bytes.Buffer{}
+
+			s.QueryBeaconState(writer, request)
+			require.Equal(t, http.StatusOK, writer.Code)
+			assert.Equal(t, version.String(version.Phase0), writer.Header().Get(api.VersionHeader))
+
+			expectedResponse := &sszquerypb.SSZQueryResponse{
+				Root:   stateRoot[:],
+				Result: tt.expectedValue,
+			}
+			sszExpectedResponse, err := expectedResponse.MarshalSSZ()
+			require.NoError(t, err)
+			assert.DeepEqual(t, sszExpectedResponse, writer.Body.Bytes())
+		})
+	}
+}

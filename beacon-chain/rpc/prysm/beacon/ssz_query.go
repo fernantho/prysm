@@ -3,6 +3,7 @@ package beacon
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/OffchainLabs/prysm/v6/api/server/structs"
 	"github.com/OffchainLabs/prysm/v6/beacon-chain/rpc/eth/shared"
 	"github.com/OffchainLabs/prysm/v6/beacon-chain/rpc/lookup"
+	"github.com/OffchainLabs/prysm/v6/beacon-chain/state/state-native/types"
 	"github.com/OffchainLabs/prysm/v6/encoding/ssz/query"
 	"github.com/OffchainLabs/prysm/v6/monitoring/tracing/trace"
 	"github.com/OffchainLabs/prysm/v6/network/httputil"
@@ -93,6 +95,28 @@ func (s *Server) QueryBeaconState(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		httputil.HandleError(w, "Could not marshal state to SSZ: "+err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	// Merkle proofs
+	merkleProofs := true
+	if merkleProofs == true {
+		generalizedIndex, err := query.GetGeneralizedIndexFromPath(info, path)
+		var fieldIndex types.FieldIndex = types.FieldIndex(generalizedIndex)
+		if err != nil {
+			httputil.HandleError(w, "Could not get generalized index for path '"+req.Query+"': "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		proofs, err := st.ProofByFieldIndex(ctx, fieldIndex)
+		if err != nil {
+			httputil.HandleError(w, "Could not get Merkle proofs for path '"+req.Query+"': "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		fmt.Println("Merkle Proofs for path ", req.Query, ":")
+		for i, proof := range proofs {
+			fmt.Printf("Proof %d: %x\n", i, proof)
+		}
 	}
 
 	response := &sszquerypb.SSZQueryResponse{

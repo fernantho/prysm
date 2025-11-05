@@ -273,3 +273,10 @@ func (f *FieldTrie) Empty() bool {
 func (f *FieldTrie) InsertFieldLayer(layer [][]*[32]byte) {
 	f.fieldLayers = layer
 }
+
+// GetFieldLayers manually inserts a field layer. This method
+// bypasses the normal method of field computation, it is only
+// meant to be used in tests.
+func (f *FieldTrie) GetFieldLayers() [][]*[32]byte {
+	return f.fieldLayers
+}

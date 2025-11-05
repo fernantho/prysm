@@ -268,3 +268,9 @@ const (
 
 // Enumerator keeps track of the number of states created since the node's start.
 var Enumerator = &consensus_types.ThreadSafeEnumerator{}
+
+type MultiProof struct {
+	Indices []uint64
+	Leaves  [][]byte
+	Proofs  [][]byte
+}
