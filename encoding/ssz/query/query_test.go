@@ -1,14 +1,16 @@
 package query_test
 
 import (
+	"bytes"
 	"math"
 	"testing"
 
 	"github.com/OffchainLabs/go-bitfield"
-	"github.com/OffchainLabs/prysm/v7/encoding/ssz/query"
-	"github.com/OffchainLabs/prysm/v7/encoding/ssz/query/testutil"
-	sszquerypb "github.com/OffchainLabs/prysm/v7/proto/ssz_query/testing"
-	"github.com/OffchainLabs/prysm/v7/testing/require"
+	"github.com/OffchainLabs/prysm/v6/encoding/ssz/query"
+	"github.com/OffchainLabs/prysm/v6/encoding/ssz/query/proof"
+	"github.com/OffchainLabs/prysm/v6/encoding/ssz/query/testutil"
+	sszquerypb "github.com/OffchainLabs/prysm/v6/proto/ssz_query/testing"
+	"github.com/OffchainLabs/prysm/v6/testing/require"
 )
 
 func TestSize(t *testing.T) {
@@ -390,6 +392,16 @@ func TestHashTreeRoot(t *testing.T) {
 			expectedHashTreeRoot, err := tt.obj.HashTreeRoot()
 			require.NoError(t, err, "HashTreeRoot on original object should not return an error")
 			require.Equal(t, expectedHashTreeRoot, hashTreeRoot, "HashTreeRoot from sszInfo should match original object's HashTreeRoot")
+
+			// Compute merkle tree using dynamic merkleizer with a fresh wrapper for each test
+			wrapper := &proof.Wrapper{}
+			err = query.HashTreeRootWith(tt.obj, info, wrapper)
+			require.NoError(t, err, "ComputeMerkleTree should not return an error")
+			require.NotNil(t, wrapper.Node(), "Expected non-nil merkle tree node")
+
+			// Verify that the root from the merkle tree matches the HashTreeRoot
+			merkleRoot := wrapper.Node().Hash()
+			require.Equal(t, true, bytes.Equal(hashTreeRoot[:], merkleRoot), "Merkle tree root should match HashTreeRoot")
 		})
 	}
 }
