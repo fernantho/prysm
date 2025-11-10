@@ -107,8 +107,7 @@ func (s *Server) QueryBeaconState(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		// Get the raw proto object to compute merkle proof
-		protoState := st.ToProtoUnsafe()
-		merkleProof, err := query.GenerateMerkleProof(protoState, gi, info)
+		merkleProof, err := query.GenerateMerkleProof(sszObject, gi, info)
 		if err != nil {
 			httputil.HandleError(w, "Could not generate proof for path '"+req.Query+"': "+err.Error(), http.StatusInternalServerError)
 			return
@@ -229,7 +228,7 @@ func (s *Server) QueryBeaconBlock(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		// Get the raw proto object to compute merkle proof
-		merkleProof, err := query.GenerateMerkleProof(protoBlock, gi, info)
+		merkleProof, err := query.GenerateMerkleProof(block, gi, info)
 		if err != nil {
 			httputil.HandleError(w, "Could not generate proof for path '"+req.Query+"': "+err.Error(), http.StatusInternalServerError)
 			return
