@@ -19,7 +19,6 @@ import (
 // 1. Create a Wrapper that implements HashWalker to build the merkle tree
 // 2. Call HashTreeRootWith to walk the object structure and build the tree
 // 3. Extract the proof from the resulting tree at the specified generalized index
-// 4. Convert to protobuf format
 func GenerateMerkleProof(sszObject any, generalizedIndex uint64, info *SszInfo) (*proof.Proof, error) {
 	w := &proof.Wrapper{}
 

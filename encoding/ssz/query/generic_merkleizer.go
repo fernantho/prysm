@@ -276,8 +276,14 @@ func buildRootFromList(info *SszInfo, sourceValue reflect.Value, hh proof.HashWa
 	// - For containers/lists/vectors: treeCapacity = maxElements (each element is a separate node)
 	var treeCapacity uint64
 
-	if elemInfo.sszType.isBasic() {
-		treeCapacity = proof.CalculateLimit(limit, uint64(listLength), elemInfo.Size())
+	if elemInfo.sszType.isBasic() && elemInfo.Size() > 0 {
+		// Primitive types: calculate bytes and convert to chunks
+		elementSize := elemInfo.Size()
+		if elementSize > 0 {
+			treeCapacity = proof.CalculateLimit(limit, uint64(listLength), elemInfo.Size())
+		} else {
+			treeCapacity = limit
+		}
 	} else {
 		// Variable-size and complex types: each is a separate node, use limit directly
 		treeCapacity = limit
