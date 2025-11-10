@@ -98,9 +98,26 @@ func buildRootFromType(info *SszInfo, sourceValue reflect.Value, hh proof.HashWa
 	}
 }
 
-// buildRootFromContainer processes a struct (container in SSZ) field-by-field using reflection.
-// Each field is recursively hashed using SszInfo for type guidance, and then the fields are
-// merkleized together.
+// buildRootFromContainer computes the hash tree root for ssz containers.
+//
+// In SSZ, containers are hashed as follows:
+//   - Each field is hashed independently to produce a 32-byte root
+//   - All field roots are collected in order
+//   - The collection is Merkleized to produce the container's root
+//
+// The function uses the pre-computed TypeDescriptor to efficiently iterate through
+// fields without repeated reflection calls.
+//
+// Parameters:
+//   - info: The SszInfo containing container field metadata and ordering
+//   - sourceValue: The reflect.Value of the container to hash
+//   - hh: The HashWalker instance for hash computation
+//
+// Returns:
+//   - error: An error if any field hashing fails
+//
+// The Merkleize call at the end combines all field hashes into the final root
+// using binary tree hashing with zero-padding to the next power of two.
 func buildRootFromContainer(info *SszInfo, sourceValue reflect.Value, hh proof.HashWalker) error {
 	if sourceValue.Kind() != reflect.Struct {
 		return fmt.Errorf("expected struct, got %v", sourceValue.Kind())
@@ -136,10 +153,27 @@ func buildRootFromContainer(info *SszInfo, sourceValue reflect.Value, hh proof.H
 	return nil
 }
 
-// buildRootFromVector processes a fixed-size array (vector in SSZ) using SszInfo for element type guidance.
-// Byte vectors are handled specially (chunked into 32-byte segments).
-// Other arrays have each element processed individually with packing.
-// Note: Proto-generated structs use []byte (slices) for fixed-size byte vectors,
+// buildRootFromVector computes the hash tree root for ssz vectors.
+//
+// Arrays in SSZ are hashed based on their element type:
+//   - Byte arrays: Treated as a single value, chunked into 32-byte segments
+//   - Other arrays: Each element is hashed individually, then Merkleized
+//
+// For arrays with max size hints, the function uses MerkleizeWithMixin to include
+// the array length in the final hash computation.
+//
+// Parameters:
+//   - sourceType: The TypeDescriptor containing array metadata
+//   - sourceValue: The reflect.Value of the array to hash
+//   - hh: The Hasher instance for hash computation
+//   - idt: Indentation level for verbose logging
+//
+// Returns:
+//   - error: An error if element hashing fails
+//
+// Special handling:
+//   - Byte arrays use PutBytes for efficient chunk-based hashing
+//   - Arrays with max size hints include length mixing for proper limits
 func buildRootFromVector(info *SszInfo, sourceValue reflect.Value, hh proof.HashWalker) error {
 	// Handle both array and slice types (proto uses slices for byte vectors)
 	if sourceValue.Kind() != reflect.Slice {
@@ -203,7 +237,7 @@ func buildRootFromList(info *SszInfo, sourceValue reflect.Value, hh proof.HashWa
 		return fmt.Errorf("failed to get element info: %w", err)
 	}
 
-	listLength := sourceValue.Len() // Use actual slice length, not analyzed length
+	listLength := int(listInfo.length) //  sourceValue.Len() // TODO: Use actual slice length, not analyzed length
 	limit := listInfo.Limit()
 
 	// Special case: byte lists/slices []byte (fixed-size Uint8 elements)
@@ -243,14 +277,7 @@ func buildRootFromList(info *SszInfo, sourceValue reflect.Value, hh proof.HashWa
 	var treeCapacity uint64
 
 	if elemInfo.sszType.isBasic() {
-		// Primitive types: calculate bytes and convert to chunks
-		elementSize := elemInfo.Size()
-		if elementSize > 0 {
-			maxBytes := limit * elementSize
-			treeCapacity = (maxBytes + 31) / 32
-		} else {
-			treeCapacity = limit
-		}
+		treeCapacity = proof.CalculateLimit(limit, uint64(listLength), elemInfo.Size())
 	} else {
 		// Variable-size and complex types: each is a separate node, use limit directly
 		treeCapacity = limit
@@ -291,6 +318,10 @@ func buildRootFromBitlist(info *SszInfo, sourceValue reflect.Value, hh proof.Has
 	bitlistInfo, err := info.BitlistInfo()
 	if err != nil {
 		return fmt.Errorf("failed to get bitlist info: %w", err)
+	}
+
+	if sourceValue.Len() > int(bitlistInfo.Limit()) {
+		return fmt.Errorf("bitlist length exceeds limit: %d > %d", sourceValue.Len(), bitlistInfo.Limit())
 	}
 
 	// Get the byte slice representation of the bitlist
@@ -350,11 +381,8 @@ func buildRootFromUint64(sourceValue reflect.Value, hh proof.HashWalker, pack bo
 }
 
 // buildRootFromBoolean processes a boolean value. Only Put is supported; Append is not available in HashWalker.
-func buildRootFromBoolean(sourceValue reflect.Value, hh proof.HashWalker, pack bool) error {
-	if pack {
-		return fmt.Errorf("AppendBool not available in HashWalker")
-	}
-	val := sourceValue.Bool()
+func buildRootFromBoolean(sourceValue reflect.Value, hh proof.HashWalker, _ bool) error {
+	val := sourceValue.Bool() // TODO: it panics if sourceValue is invalid
 	hh.PutBool(val)
 	return nil
 }

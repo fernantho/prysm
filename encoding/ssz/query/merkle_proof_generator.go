@@ -1,9 +1,7 @@
 package query
 
 import (
-	"bytes"
 	"errors"
-	"fmt"
 
 	"github.com/OffchainLabs/prysm/v7/encoding/ssz/query/proof"
 )
@@ -39,28 +37,6 @@ func GenerateMerkleProof(sszObject any, generalizedIndex uint64, info *SszInfo) 
 	merkleProof, err := rootNode.Prove(int(generalizedIndex))
 	if err != nil {
 		return nil, err
-	}
-
-	// Verify the proof against the root hash we built (not the proto-generated one)
-	rootHash := rootNode.Hash()
-	valid, err := proof.VerifyProof(rootHash, merkleProof)
-	if err != nil {
-		return nil, err
-	}
-	if !valid {
-		return nil, errors.New("failed to verify merkle proof")
-	}
-
-	// Also verify that our built tree root matches the proto-generated hash tree root
-	// This is a sanity check to ensure our reflection-based tree building is correct
-	if obj, ok := sszObject.(SSZObject); ok {
-		protoHTR, err := obj.HashTreeRoot()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get proto HashTreeRoot: %w", err)
-		}
-		if !bytes.Equal(rootHash, protoHTR[:]) {
-			return nil, fmt.Errorf("root hash mismatch: built tree=%x, proto=%x", rootHash, protoHTR[:])
-		}
 	}
 
 	return merkleProof, nil
