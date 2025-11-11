@@ -286,7 +286,9 @@ func buildRootFromList(info *SszInfo, sourceValue reflect.Value, hh proof.HashWa
 		return fmt.Errorf("failed to get element info: %w", err)
 	}
 
-	sliceLen := listInfo.Length()
+	sliceLen := sourceValue.Len()
+	// NOTE: using listInfo.Length() is only possible if multi-dimensional array has the same length e.g. `[][32]byte`.
+	// In case of variable-length multi-dimensional arrays, it cannot be used e.g. `[][]byte`` as we only store the length of first element.
 	limit := listInfo.Limit()
 
 	// For byte arrays, handle as a single unit

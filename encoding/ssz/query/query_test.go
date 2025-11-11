@@ -1,7 +1,6 @@
 package query_test
 
 import (
-	"bytes"
 	"math"
 	"testing"
 
@@ -400,8 +399,10 @@ func TestHashTreeRoot(t *testing.T) {
 			require.NotNil(t, wrapper.Node(), "Expected non-nil merkle tree node")
 
 			// Verify that the root from the merkle tree matches the HashTreeRoot
-			merkleRoot := wrapper.Node().Hash()
-			require.Equal(t, true, bytes.Equal(hashTreeRoot[:], merkleRoot), "Merkle tree root should match HashTreeRoot")
+			merkleRootBytes := wrapper.Node().Hash()
+			var merkleRoot [32]uint8
+			copy(merkleRoot[:], merkleRootBytes)
+			require.Equal(t, hashTreeRoot, merkleRoot, "Merkle tree root should match HashTreeRoot")
 		})
 	}
 }
