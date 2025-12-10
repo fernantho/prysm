@@ -12,20 +12,13 @@ import (
 // The returned Node can be used to compute the hash tree root via Node.Hash(),
 // or to generate inclusion proofs via Node.Prove(gindex).
 func (info *SszInfo) MerkleTree() (*ssz.Node, error) {
-	return info.toMerkleTree(&ssz.Wrapper{})
-}
-
-// toMerkleTree constructs an SSZ Merkle tree using fastssz's Wrapper.
-// It is the entrypoint for traversing the analyzed SSZ structure and
-// building the tree by adding leaves and committing subtrees according
-// to SSZ merkleization rules.
-func (info *SszInfo) toMerkleTree(w *ssz.Wrapper) (*ssz.Node, error) {
 	if info == nil {
 		return nil, fmt.Errorf("nil SszInfo")
 	}
 
 	// info.source is guaranteed to be valid and dereferenced by AnalyzeObject
 	v := reflect.ValueOf(info.source).Elem()
+	w := &ssz.Wrapper{}
 
 	if err := buildTree(info, v, w); err != nil {
 		return nil, err
