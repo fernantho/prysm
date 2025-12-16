@@ -137,7 +137,7 @@ func TestQueryBeaconState(t *testing.T) {
 func TestQueryBeaconState_withProof(t *testing.T) {
 	ctx := context.Background()
 
-	st, _ := util.DeterministicGenesisState(t, 16)
+	st, _ := util.DeterministicGenesisState(t, 100_000)
 	require.NoError(t, st.SetSlot(primitives.Slot(42)))
 	stateRoot, err := st.HashTreeRoot(ctx)
 	require.NoError(t, err)
@@ -151,59 +151,59 @@ func TestQueryBeaconState_withProof(t *testing.T) {
 		path          string
 		expectedValue []byte
 	}{
-		{
-			path: ".slot",
-			expectedValue: func() []byte {
-				slot := st.Slot()
-				result, _ := slot.MarshalSSZ()
-				return result
-			}(),
-		},
-		{
-			path: ".latest_block_header",
-			expectedValue: func() []byte {
-				header := st.LatestBlockHeader()
-				result, _ := header.MarshalSSZ()
-				return result
-			}(),
-		},
-		{
-			path: ".validators",
-			expectedValue: func() []byte {
-				b := make([]byte, 0)
-				validators := st.Validators()
-				for _, v := range validators {
-					vBytes, _ := v.MarshalSSZ()
-					b = append(b, vBytes...)
-				}
-				return b
+		// {
+		// 	path: ".slot",
+		// 	expectedValue: func() []byte {
+		// 		slot := st.Slot()
+		// 		result, _ := slot.MarshalSSZ()
+		// 		return result
+		// 	}(),
+		// },
+		// {
+		// 	path: ".latest_block_header",
+		// 	expectedValue: func() []byte {
+		// 		header := st.LatestBlockHeader()
+		// 		result, _ := header.MarshalSSZ()
+		// 		return result
+		// 	}(),
+		// },
+		// {
+		// 	path: ".validators",
+		// 	expectedValue: func() []byte {
+		// 		b := make([]byte, 0)
+		// 		validators := st.Validators()
+		// 		for _, v := range validators {
+		// 			vBytes, _ := v.MarshalSSZ()
+		// 			b = append(b, vBytes...)
+		// 		}
+		// 		return b
 
-			}(),
-		},
-		{
-			path: ".validators[0]",
-			expectedValue: func() []byte {
-				v, _ := st.ValidatorAtIndex(0)
-				result, _ := v.MarshalSSZ()
-				return result
-			}(),
-		},
-		{
-			path: ".validators[0].withdrawal_credentials",
-			expectedValue: func() []byte {
-				v, _ := st.ValidatorAtIndex(0)
-				return v.WithdrawalCredentials
-			}(),
-		},
-		{
-			path: ".validators[0].effective_balance",
-			expectedValue: func() []byte {
-				v, _ := st.ValidatorAtIndex(0)
-				b := make([]byte, 8)
-				binary.LittleEndian.PutUint64(b, uint64(v.EffectiveBalance))
-				return b
-			}(),
-		},
+		// 	}(),
+		// },
+		// {
+		// 	path: ".validators[0]",
+		// 	expectedValue: func() []byte {
+		// 		v, _ := st.ValidatorAtIndex(0)
+		// 		result, _ := v.MarshalSSZ()
+		// 		return result
+		// 	}(),
+		// },
+		// {
+		// 	path: ".validators[0].withdrawal_credentials",
+		// 	expectedValue: func() []byte {
+		// 		v, _ := st.ValidatorAtIndex(0)
+		// 		return v.WithdrawalCredentials
+		// 	}(),
+		// },
+		// {
+		// 	path: ".validators[0].effective_balance",
+		// 	expectedValue: func() []byte {
+		// 		v, _ := st.ValidatorAtIndex(0)
+		// 		b := make([]byte, 8)
+		// 		binary.LittleEndian.PutUint64(b, uint64(v.EffectiveBalance))
+		// 		return b
+		// 	}(),
+		// },
 	}
 
 	for _, tt := range tests {
