@@ -130,7 +130,8 @@ func buildVectorSubtree(info *SszInfo, v reflect.Value, w *ssz.Wrapper) error {
 
 // buildListSubtree merkleizes a variable-length sequence of elements.
 // Basic types are packed into 32-byte chunks; composite types are processed recursively.
-// The length is mixed into the root hash via CommitWithMixin.
+// The length is mixed into the root hash via SparseCommitWithMixin to avoid building
+// the full tree when the list is sparse (numElements << limit).
 func buildListSubtree(info *SszInfo, v reflect.Value, w *ssz.Wrapper) error {
 	li, err := info.ListInfo()
 	if err != nil {
@@ -156,7 +157,9 @@ func buildListSubtree(info *SszInfo, v reflect.Value, w *ssz.Wrapper) error {
 		}
 	}
 
-	w.CommitWithMixin(start, length, int(nextPowerOfTwo(uint64(limit))))
+	// Use sparse commit to avoid building full tree with trillions of empty nodes
+	// for lists like validators (limit 2^40) or balances
+	w.SparseCommitWithMixin(start, length, int(nextPowerOfTwo(uint64(limit))))
 	return nil
 }
 
@@ -194,7 +197,7 @@ func buildBitlistSubtree(info *SszInfo, v reflect.Value, w *ssz.Wrapper) error {
 	// In consensus specs these max bit sizes are chosen so this is a power of 2.
 	limitChunks := int((bi.limit + 255) / 256)
 
-	w.CommitWithMixin(start, int(bi.length), limitChunks)
+	w.SparseCommitWithMixin(start, int(bi.length), limitChunks)
 	return nil
 }
 
