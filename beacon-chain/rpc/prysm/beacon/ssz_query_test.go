@@ -5,9 +5,9 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -20,6 +20,7 @@ import (
 	"github.com/OffchainLabs/prysm/v7/consensus-types/blocks"
 	"github.com/OffchainLabs/prysm/v7/consensus-types/interfaces"
 	"github.com/OffchainLabs/prysm/v7/consensus-types/primitives"
+	"github.com/OffchainLabs/prysm/v7/encoding/ssz/detect"
 	eth "github.com/OffchainLabs/prysm/v7/proto/prysm/v1alpha1"
 	sszquerypb "github.com/OffchainLabs/prysm/v7/proto/ssz_query"
 	"github.com/OffchainLabs/prysm/v7/runtime/version"
@@ -139,61 +140,60 @@ func TestQueryBeaconState(t *testing.T) {
 func TestQueryBeaconState_withProof(t *testing.T) {
 	ctx := context.Background()
 
-	st, _ := util.DeterministicGenesisState(t, 1_000_000)
-	require.NoError(t, st.SetSlot(primitives.Slot(42)))
+	beaconStateGenerationStartTime := time.Now()
+
+	// Load beacon state from SSZ file
+	stateBytes, err := os.ReadFile("../../../../tmp/beaconstate_finalized.ssz")
+	require.NoError(t, err, "Failed to read beacon state file")
+	st, err := detect.UnmarshalState(stateBytes)
+	require.NoError(t, err, "Failed to unmarshal beacon state")
+
+	t.Logf("Loaded state in %s", time.Since(beaconStateGenerationStartTime))
+
 	stateRoot, err := st.HashTreeRoot(ctx)
 	require.NoError(t, err)
-	require.NoError(t, st.UpdateBalancesAtIndex(0, 42000000000))
-
-	// Recompute state root after modification to match what merkleizer will produce
-	startTime := time.Now()
-	stateRoot, err = st.HashTreeRoot(ctx)
-	require.NoError(t, err)
-
-	stateRootComputationDuration := time.Since(startTime)
-	fmt.Printf("State root recomputation took %s\n", stateRootComputationDuration)
 
 	tests := []struct {
 		path          string
 		expectedValue []byte
 	}{
-		// {
-		// 	path: ".slot",
-		// 	expectedValue: func() []byte {
-		// 		slot := st.Slot()
-		// 		result, _ := slot.MarshalSSZ()
-		// 		return result
-		// 	}(),
-		// },
-		// {
-		// 	path: ".latest_block_header",
-		// 	expectedValue: func() []byte {
-		// 		header := st.LatestBlockHeader()
-		// 		result, _ := header.MarshalSSZ()
-		// 		return result
-		// 	}(),
-		// },
-		// {
-		// 	path: ".validators",
-		// 	expectedValue: func() []byte {
-		// 		b := make([]byte, 0)
-		// 		validators := st.Validators()
-		// 		for _, v := range validators {
-		// 			vBytes, _ := v.MarshalSSZ()
-		// 			b = append(b, vBytes...)
-		// 		}
-		// 		return b
+		{
+			path: ".slot",
+			expectedValue: func() []byte {
+				slot := st.Slot()
+				result, _ := slot.MarshalSSZ()
+				return result
+			}(),
+		},
+		{
+			path: ".latest_block_header",
+			expectedValue: func() []byte {
+				header := st.LatestBlockHeader()
+				result, _ := header.MarshalSSZ()
+				return result
+			}(),
+		},
+		{
+			path: ".validators",
+			expectedValue: func() []byte {
+				b := make([]byte, 0)
+				validators := st.Validators()
+				for _, v := range validators {
+					vBytes, _ := v.MarshalSSZ()
+					b = append(b, vBytes...)
+				}
+				return b
 
-		// 	}(),
-		// },
-		// {
-		// 	path: ".validators[0]",
-		// 	expectedValue: func() []byte {
-		// 		v, _ := st.ValidatorAtIndex(0)
-		// 		result, _ := v.MarshalSSZ()
-		// 		return result
-		// 	}(),
-		// },
+			}(),
+		},
+		{
+			path: ".validators[0]",
+			expectedValue: func() []byte {
+				v, _ := st.ValidatorAtIndex(0)
+				result, _ := v.MarshalSSZ()
+				return result
+			}(),
+		},
 		{
 			path: ".validators[0].withdrawal_credentials",
 			expectedValue: func() []byte {
@@ -201,15 +201,15 @@ func TestQueryBeaconState_withProof(t *testing.T) {
 				return v.WithdrawalCredentials
 			}(),
 		},
-		// {
-		// 	path: ".validators[0].effective_balance",
-		// 	expectedValue: func() []byte {
-		// 		v, _ := st.ValidatorAtIndex(0)
-		// 		b := make([]byte, 8)
-		// 		binary.LittleEndian.PutUint64(b, uint64(v.EffectiveBalance))
-		// 		return b
-		// 	}(),
-		// },
+		{
+			path: ".validators[0].effective_balance",
+			expectedValue: func() []byte {
+				v, _ := st.ValidatorAtIndex(0)
+				b := make([]byte, 8)
+				binary.LittleEndian.PutUint64(b, uint64(v.EffectiveBalance))
+				return b
+			}(),
+		},
 	}
 
 	for _, tt := range tests {
@@ -236,9 +236,11 @@ func TestQueryBeaconState_withProof(t *testing.T) {
 			writer := httptest.NewRecorder()
 			writer.Body = &bytes.Buffer{}
 
+			queryStartTime := time.Now()
 			s.QueryBeaconState(writer, request)
 			require.Equal(t, http.StatusOK, writer.Code)
-			assert.Equal(t, version.String(version.Phase0), writer.Header().Get(api.VersionHeader))
+			assert.Equal(t, version.String(version.Fulu), writer.Header().Get(api.VersionHeader))
+			t.Logf("SSZ Query with proof for path '%s' completed in %s", tt.path, time.Since(queryStartTime))
 
 			// Decode the response to verify the proof
 			responseData := writer.Body.Bytes()
