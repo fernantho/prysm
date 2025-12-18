@@ -17,6 +17,13 @@ type ProofCollector struct {
 	leaves   map[uint64][32]byte
 }
 
+func NewProofCollector() *ProofCollector {
+	return &ProofCollector{
+		siblings: make(map[uint64][32]byte),
+		leaves:   make(map[uint64][32]byte),
+	}
+}
+
 func (pc *ProofCollector) toProof() *fastssz.Proof {
 	proof := &fastssz.Proof{}
 
@@ -43,6 +50,22 @@ func (pc *ProofCollector) toProof() *fastssz.Proof {
 	return proof
 }
 
+// siblingsGindex computes all sibling generalized indices along the path
+// from the given gindex up to the root. These are the nodes whose hashes
+// are needed to construct a merkle proof.
+func (pc *ProofCollector) siblingsGindex(gindex uint64) {
+	// Store the target gindex in leaves map
+	pc.leaves[gindex] = [32]byte{}
+
+	// Walk from gindex up to root (gindex 1)
+	// At each level, the sibling is gindex XOR 1
+	for gindex > 1 {
+		siblingGindex := gindex ^ 1
+		pc.siblings[siblingGindex] = [32]byte{}
+		gindex = gindex / 2 // Move to parent
+	}
+}
+
 // Prove is the entrypoint to generate an SSZ Merkle proof for the given generalized index.
 // Parameters:
 // - gindex: the generalized index of the node to prove inclusion for.
@@ -55,11 +78,8 @@ func (info *SszInfo) Prove(gindex uint64) (*fastssz.Proof, [32]byte, error) {
 		return nil, [32]byte{}, fmt.Errorf("nil SszInfo")
 	}
 
-	collector := &ProofCollector{
-		siblings: make(map[uint64][32]byte),
-		leaves:   make(map[uint64][32]byte),
-	}
-	siblingsGindex(gindex, collector)
+	collector := NewProofCollector()
+	collector.siblingsGindex(gindex)
 
 	// info.source is guaranteed to be valid and dereferenced by AnalyzeObject
 	v := reflect.ValueOf(info.source).Elem()
@@ -70,22 +90,6 @@ func (info *SszInfo) Prove(gindex uint64) (*fastssz.Proof, [32]byte, error) {
 	}
 
 	return collector.toProof(), htr, nil
-}
-
-// siblingsGindex computes all sibling generalized indices along the path
-// from the given gindex up to the root. These are the nodes whose hashes
-// are needed to construct a merkle proof.
-func siblingsGindex(gindex uint64, collector *ProofCollector) {
-	// Store the target gindex in leaves map
-	collector.leaves[gindex] = [32]byte{}
-
-	// Walk from gindex up to root (gindex 1)
-	// At each level, the sibling is gindex XOR 1
-	for gindex > 1 {
-		siblingGindex := gindex ^ 1
-		collector.siblings[siblingGindex] = [32]byte{}
-		gindex = gindex / 2 // Move to parent
-	}
 }
 
 // merkleize recursively traverse the SSZ structure to build the Merkle proof.
