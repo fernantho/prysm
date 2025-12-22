@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -187,7 +188,11 @@ func TestQueryBeaconState(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.path, func(t *testing.T) {
+		proofSuffix := "without proof"
+		if tt.includeProof {
+			proofSuffix = "with proof"
+		}
+		t.Run(fmt.Sprintf("%s %s", tt.path, proofSuffix), func(t *testing.T) {
 			chainService := &chainMock.ChainService{Optimistic: false, FinalizedRoots: make(map[[32]byte]bool)}
 			s := &Server{
 				OptimisticModeFetcher: chainService,
@@ -212,7 +217,7 @@ func TestQueryBeaconState(t *testing.T) {
 
 			queryStartTime := time.Now()
 			s.QueryBeaconState(writer, request)
-			t.Logf("SSZ Query with proof for path '%s' completed in %s", tt.path, time.Since(queryStartTime))
+			t.Logf("SSZ Query for path '%s' completed in %s", tt.path, time.Since(queryStartTime))
 			require.Equal(t, http.StatusOK, writer.Code)
 			// NOTE: uncomment below and comment prior line to test Fulu version for Hoodi Beacon state
 			assert.Equal(t, version.String(version.Phase0), writer.Header().Get(api.VersionHeader))
@@ -472,7 +477,11 @@ func TestQueryBeaconBlock(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		proofSuffix := "without proof"
+		if tt.includeProof {
+			proofSuffix = "with proof"
+		}
+		t.Run(fmt.Sprintf("%s %s", tt.path, proofSuffix), func(t *testing.T) {
 			mockBlockFetcher := &testutil.MockBlocker{BlockToReturn: tt.block}
 			mockChainService := &chainMock.ChainService{
 				FinalizedRoots: map[[32]byte]bool{},
