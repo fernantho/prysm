@@ -86,7 +86,7 @@ func (pc *ProofCollector) toProof() (*fastssz.Proof, error) {
 
 	proof := &fastssz.Proof{}
 	if len(pc.leaves) == 0 {
-		return proof, nil
+		return nil, fmt.Errorf("no leaves collected: add target leaves before merkleization")
 	}
 
 	leafGindices := make([]uint64, 0, len(pc.leaves))
