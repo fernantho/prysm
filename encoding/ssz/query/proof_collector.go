@@ -312,7 +312,7 @@ func (pc *ProofCollector) merkleizeVectorBody(elemInfo *SszInfo, v reflect.Value
 		chunks = make([][32]byte, length)
 
 		// Parallel execution
-		workerCount := runtime.GOMAXPROCS(0) * 2
+		workerCount := runtime.GOMAXPROCS(0)
 		if workerCount > length {
 			workerCount = length
 		}
@@ -470,7 +470,10 @@ func (pc *ProofCollector) merkleizeList(info *SszInfo, v reflect.Value, currentG
 
 	// Handle the length mixin level (and proof bookkeeping at this level).
 	// Compute the final list root: hash(dataRoot || lengthHash)
-	root := pc.mixinLengthAndCollect(currentGindex, chunks)
+	root, err := pc.mixinLengthAndCollect(currentGindex, chunks)
+	if err != nil {
+		return [32]byte{}, err
+	}
 
 	// If the list root itself is the target
 	pc.collectLeaf(currentGindex, root)
@@ -572,7 +575,10 @@ func (pc *ProofCollector) merkleizeBitlist(info *SszInfo, v reflect.Value, curre
 	}
 
 	// Handle the length mixin level (and proof bookkeeping at this level).
-	root := pc.mixinLengthAndCollect(currentGindex, chunks)
+	root, err := pc.mixinLengthAndCollect(currentGindex, chunks)
+	if err != nil {
+		return [32]byte{}, err
+	}
 
 	pc.collectLeaf(currentGindex, root)
 
@@ -630,26 +636,30 @@ func (pc *ProofCollector) MerkleizeVectorAndCollect(elements [][32]byte, subtree
 //
 // Returns:
 // - [32]byte: mixed-in Merkle root (or zero value on hashing error).
-func (pc *ProofCollector) mixinLengthAndCollect(currentGindex uint64, chunks [][32]byte) [32]byte {
+// - error: any error encountered during hashing.
+func (pc *ProofCollector) mixinLengthAndCollect(currentGindex uint64, chunks [][32]byte) ([32]byte, error) {
+	dataRoot := chunks[0]
+	lengthHash := chunks[1]
+
 	dataRootGindex := currentGindex * 2
 	lengthHashGindex := currentGindex*2 + 1
 
 	// Check if dataRoot is a sibling we need to collect
-	pc.collectSibling(dataRootGindex, chunks[0])
+	pc.collectSibling(dataRootGindex, dataRoot)
 
 	// Check if lengthHash is a sibling we need to collect
-	pc.collectSibling(lengthHashGindex, chunks[1])
+	pc.collectSibling(lengthHashGindex, lengthHash)
 
 	// Check if dataRoot is a leaf we need to collect
-	pc.collectLeaf(dataRootGindex, chunks[0])
+	pc.collectLeaf(dataRootGindex, dataRoot)
 
 	// Check if lengthHash is a leaf we need to collect
-	pc.collectLeaf(lengthHashGindex, chunks[1])
+	pc.collectLeaf(lengthHashGindex, lengthHash)
 
 	if err := gohashtree.Hash(chunks, chunks); err != nil {
-		return [32]byte{}
+		return [32]byte{}, err
 	}
-	return chunks[0]
+	return chunks[0], nil
 }
 
 // collectSibling stores the hash for a sibling node identified by gindex.
