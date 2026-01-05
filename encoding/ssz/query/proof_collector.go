@@ -27,7 +27,7 @@ import (
 // - required* maps are read-only during merkleization.
 // - siblings/leaves writes are protected by mu.
 type ProofCollector struct {
-	mu sync.Mutex
+	sync.Mutex
 
 	// Required gindices (registered before merkleization)
 	requiredSiblings map[uint64]struct{}
@@ -48,8 +48,8 @@ func NewProofCollector() *ProofCollector {
 }
 
 func (pc *ProofCollector) Reset() {
-	pc.mu.Lock()
-	defer pc.mu.Unlock()
+	pc.Lock()
+	defer pc.Unlock()
 
 	pc.requiredSiblings = make(map[uint64]struct{})
 	pc.requiredLeaves = make(map[uint64]struct{})
@@ -61,8 +61,8 @@ func (pc *ProofCollector) Reset() {
 // Registration should happen before merkleization begins.
 func (pc *ProofCollector) AddTarget(gindex uint64) {
 	// Lock safe just in case the collector is re-used.
-	pc.mu.Lock()
-	defer pc.mu.Unlock()
+	pc.Lock()
+	defer pc.Unlock()
 
 	pc.requiredLeaves[gindex] = struct{}{}
 
@@ -81,8 +81,8 @@ func (pc *ProofCollector) AddTarget(gindex uint64) {
 // toProof converts the collected siblings and leaves into a fastssz.Proof structure.
 // Current behavior expects a single target leaf (single proof).
 func (pc *ProofCollector) toProof() (*fastssz.Proof, error) {
-	pc.mu.Lock()
-	defer pc.mu.Unlock()
+	pc.Lock()
+	defer pc.Unlock()
 
 	proof := &fastssz.Proof{}
 	if len(pc.leaves) == 0 {
@@ -136,9 +136,9 @@ func (pc *ProofCollector) collectLeaf(gindex uint64, leaf [32]byte) {
 	if _, ok := pc.requiredLeaves[gindex]; !ok {
 		return
 	}
-	pc.mu.Lock()
+	pc.Lock()
 	pc.leaves[gindex] = leaf
-	pc.mu.Unlock()
+	pc.Unlock()
 }
 
 // putLittleEndian writes an unsigned integer value in little-endian format.
@@ -669,9 +669,9 @@ func (pc *ProofCollector) collectSibling(gindex uint64, hash [32]byte) {
 	if _, ok := pc.requiredSiblings[gindex]; !ok {
 		return
 	}
-	pc.mu.Lock()
+	pc.Lock()
 	pc.siblings[gindex] = hash
-	pc.mu.Unlock()
+	pc.Unlock()
 }
 
 // Utils
