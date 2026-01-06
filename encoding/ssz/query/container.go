@@ -18,3 +18,15 @@ type fieldInfo struct {
 	// goFieldName is the name of the field in Go struct.
 	goFieldName string
 }
+
+func (ci *containerInfo) Fields() map[string]*fieldInfo {
+	if ci == nil {
+		return nil
+	}
+
+	return ci.fields
+}
+
+func (fi *fieldInfo) SszInfo() *SszInfo {
+	return fi.sszInfo
+}

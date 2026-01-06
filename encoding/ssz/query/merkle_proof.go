@@ -19,14 +19,14 @@ func (info *SszInfo) Prove(gindex uint64) (*fastssz.Proof, error) {
 	}
 
 	collector := NewProofCollector()
-	collector.registerRequiredSiblings(gindex)
+	collector.RegisterRequiredSiblings(gindex)
 
 	// info.source is guaranteed to be valid and dereferenced by AnalyzeObject
 	v := reflect.ValueOf(info.source).Elem()
 
-	if _, err := collector.merkleize(info, v, 1); err != nil {
+	if _, err := collector.Merkleize(info, v, 1); err != nil {
 		return nil, err
 	}
 
-	return collector.toProof()
+	return collector.ToProof()
 }

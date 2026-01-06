@@ -78,9 +78,9 @@ func (pc *ProofCollector) AddTarget(gindex uint64) {
 	}
 }
 
-// toProof converts the collected siblings and leaves into a fastssz.Proof structure.
+// ToProof converts the collected siblings and leaves into a fastssz.Proof structure.
 // Current behavior expects a single target leaf (single proof).
-func (pc *ProofCollector) toProof() (*fastssz.Proof, error) {
+func (pc *ProofCollector) ToProof() (*fastssz.Proof, error) {
 	pc.Lock()
 	defer pc.Unlock()
 
@@ -122,10 +122,10 @@ func (pc *ProofCollector) toProof() (*fastssz.Proof, error) {
 	return proof, nil
 }
 
-// registerRequiredSiblings computes all sibling generalized indices along the path
+// RegisterRequiredSiblings computes all sibling generalized indices along the path
 // from the given gindex up to the root. These are the nodes whose hashes
 // are needed to construct a merkle proof.
-func (pc *ProofCollector) registerRequiredSiblings(gindex uint64) {
+func (pc *ProofCollector) RegisterRequiredSiblings(gindex uint64) {
 	pc.Reset()
 	pc.AddTarget(gindex)
 }
@@ -151,14 +151,14 @@ func putLittleEndian(dst []byte, val uint64, size int) {
 
 // Merkleizers and proof collection methods
 
-// merkleize recursively traverses an SSZ info and computes the Merkle root of the subtree.
+// Merkleize recursively traverses an SSZ info and computes the Merkle root of the subtree.
 //
 // Proof collection:
 //   - During traversal it calls collectLeaf/collectSibling with the SSZ generalized indices (gindices)
 //     of visited nodes.
 //   - The collector only stores hashes for gindices that were pre-registered via AddTarget
 //     (requiredLeaves/requiredSiblings). This makes the traversal multiproof-ready: you can register
-//     multiple targets before calling merkleize.
+//     multiple targets before calling Merkleize.
 //
 // SSZ types handled: basic types, containers, lists, vectors, bitlists, and bitvectors.
 //
@@ -170,7 +170,7 @@ func putLittleEndian(dst []byte, val uint64, size int) {
 // Returns:
 // - [32]byte: Merkle root of the current subtree.
 // - error: any error encountered during traversal/merkleization.
-func (pc *ProofCollector) merkleize(info *SszInfo, v reflect.Value, currentGindex uint64) ([32]byte, error) {
+func (pc *ProofCollector) Merkleize(info *SszInfo, v reflect.Value, currentGindex uint64) ([32]byte, error) {
 	if info.sszType.isBasic() {
 		return pc.merkleizeBasicType(info.sszType, v, currentGindex)
 	}
@@ -266,7 +266,7 @@ func (pc *ProofCollector) merkleizeContainer(info *SszInfo, v reflect.Value, cur
 		// Field i's gindex: shift currentGindex left by depth, then OR with field index
 		fieldGindex := currentGindex<<depth + uint64(i)
 
-		htr, err := pc.merkleize(fieldInfo.sszInfo, fieldVal, fieldGindex)
+		htr, err := pc.Merkleize(fieldInfo.sszInfo, fieldVal, fieldGindex)
 		if err != nil {
 			return [32]byte{}, fmt.Errorf("field %s: %w", name, err)
 		}
@@ -333,7 +333,7 @@ func (pc *ProofCollector) merkleizeVectorBody(elemInfo *SszInfo, v reflect.Value
 				}
 
 				elemGindex := subtreeRootGindex<<depth + uint64(idx)
-				htr, err := pc.merkleize(elemInfo, v.Index(idx), elemGindex)
+				htr, err := pc.Merkleize(elemInfo, v.Index(idx), elemGindex)
 				if err != nil {
 					stopOnce.Do(func() { close(stopCh) })
 					select {
