@@ -24,6 +24,8 @@ func (info *SszInfo) Prove(gindex uint64) (*fastssz.Proof, error) {
 	// info.source is guaranteed to be valid and dereferenced by AnalyzeObject
 	v := reflect.ValueOf(info.source).Elem()
 
+	// Start the merkleization and proof collection process.
+	// In SSZ generalized indices, the root is always at index 1.
 	if _, err := collector.merkleize(info, v, 1); err != nil {
 		return nil, err
 	}
