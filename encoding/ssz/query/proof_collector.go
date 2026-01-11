@@ -316,8 +316,26 @@ func (pc *ProofCollector) merkleizeVectorBody(elemInfo *SszInfo, v reflect.Value
 
 	var chunks [][32]byte
 	if elemInfo.sszType.isBasic() {
-		// Pack basic elements into 32-byte chunks.
-		chunks = packBasicElementsToChunks(elemInfo, v, length)
+		// Serialize basic elements and pack into 32-byte chunks using ssz.PackByChunk.
+		elemSize := int(itemLength(elemInfo))
+		serialized := make([][]byte, length)
+		for i := 0; i < length; i++ {
+			buf := make([]byte, elemSize)
+			elem := v.Index(i)
+			if elemInfo.sszType == Boolean {
+				if elem.Bool() {
+					buf[0] = 1
+				}
+			} else {
+				putLittleEndian(buf, elem.Uint(), elemSize)
+			}
+			serialized[i] = buf
+		}
+		var err error
+		chunks, err = ssz.PackByChunk(serialized)
+		if err != nil {
+			return [32]byte{}, err
+		}
 	} else {
 		// Composite elements: compute each element root (no padding here; MerkleizeVectorAndCollect pads).
 		chunks = make([][32]byte, length)
@@ -683,38 +701,4 @@ func (pc *ProofCollector) collectSibling(gindex uint64, hash [32]byte) {
 	pc.Lock()
 	pc.siblings[gindex] = hash
 	pc.Unlock()
-}
-
-// Utils
-
-// packBasicElementsToChunks packs basic type elements into 32-byte chunks.
-// Returns slice of chunks as [32]byte arrays.
-func packBasicElementsToChunks(elemInfo *SszInfo, v reflect.Value, length int) [][32]byte {
-	if length == 0 {
-		return [][32]byte{{}}
-	}
-
-	elemSize := int(itemLength(elemInfo))
-	elemsPerChunk := 32 / elemSize
-	numChunks := (length + elemsPerChunk - 1) / elemsPerChunk
-
-	chunks := make([][32]byte, numChunks)
-	for chunkIdx := 0; chunkIdx < numChunks; chunkIdx++ {
-		for i := 0; i < elemsPerChunk; i++ {
-			elemIdx := chunkIdx*elemsPerChunk + i
-			if elemIdx >= length {
-				break
-			}
-			offset := i * elemSize
-			if elemInfo.sszType == Boolean {
-				if v.Index(elemIdx).Bool() {
-					chunks[chunkIdx][offset] = 1
-				}
-			} else {
-				putLittleEndian(chunks[chunkIdx][offset:], v.Index(elemIdx).Uint(), elemSize)
-			}
-		}
-	}
-
-	return chunks
 }
