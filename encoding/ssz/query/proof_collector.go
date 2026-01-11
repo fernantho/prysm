@@ -245,6 +245,17 @@ func (pc *ProofCollector) merkleizeBasicType(t SSZType, v reflect.Value, current
 // - [32]byte: Merkle root of the container.
 // - error: any error encountered while merkleizing fields.
 func (pc *ProofCollector) merkleizeContainer(info *SszInfo, v reflect.Value, currentGindex uint64) ([32]byte, error) {
+	// If the container root itself is the target, compute directly and return early.
+	// This avoids full subtree merkleization when we only need the root.
+	if _, ok := pc.requiredLeaves[currentGindex]; ok {
+		root, err := info.HashTreeRoot()
+		if err != nil {
+			return [32]byte{}, err
+		}
+		pc.collectLeaf(currentGindex, root)
+		return root, nil
+	}
+
 	ci, err := info.ContainerInfo()
 	if err != nil {
 		return [32]byte{}, err
