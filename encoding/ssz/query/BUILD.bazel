@@ -36,15 +36,21 @@ go_test(
     name = "go_default_test",
     srcs = [
         "generalized_index_test.go",
+        "merkle_proof_test.go",
         "path_test.go",
         "query_test.go",
         "tag_parser_test.go",
     ],
     deps = [
         ":go_default_library",
+        "//consensus-types/blocks:go_default_library",
+        "//consensus-types/primitives:go_default_library",
         "//encoding/ssz/query/testutil:go_default_library",
+        "//proto/prysm/v1alpha1:go_default_library",
         "//proto/ssz_query/testing:go_default_library",
         "//testing/require:go_default_library",
+        "//testing/util:go_default_library",
+        "@com_github_prysmaticlabs_fastssz//:go_default_library",
         "@com_github_prysmaticlabs_go_bitfield//:go_default_library",
     ],
 )
