@@ -626,6 +626,7 @@ func (pc *proofCollector) merkleizeVectorAndCollect(elements [][32]byte, subtree
 		for idx := range elements {
 			gindex := levelBaseGindex + uint64(idx)
 			pc.collectSibling(gindex, elements[idx])
+			pc.collectLeaf(gindex, elements[idx])
 		}
 
 		elements = htr.VectorizedSha256(elements)
