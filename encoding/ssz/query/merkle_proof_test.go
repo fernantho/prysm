@@ -147,7 +147,7 @@ func TestProve_BeaconState(t *testing.T) {
 
 // proveAndVerify helper to analyze an object, generate a merkle proof for the given path,
 // and verify the proof against the object's root.
-func proveAndVerify(t *testing.T, obj query.SSZObject, pathStr string) (*ssz.Proof, uint64) {
+func proveAndVerify(t *testing.T, obj query.SSZObject, pathStr string) {
 	t.Helper()
 
 	info, err := query.AnalyzeObject(obj)
@@ -175,5 +175,4 @@ func proveAndVerify(t *testing.T, obj query.SSZObject, pathStr string) (*ssz.Pro
 		require.Equal(t, 32, len(h), "proof hash %d is not 32 bytes", i)
 	}
 
-	return proof, gi
 }
