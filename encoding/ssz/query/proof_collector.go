@@ -692,7 +692,8 @@ func (pc *proofCollector) collectSibling(gindex uint64, hash [32]byte) {
 	pc.Unlock()
 }
 
-func OptimizedContainerRoots(info *SszInfo, v reflect.Value, pc *proofCollector) ([][32]byte, error) {
+// optimizedContainerRoots generalizes stateutil.OptimizedValidatorRoots for any SSZ container type.
+func (pc *proofCollector) optimizedContainerRoots(info *SszInfo, v reflect.Value) ([][32]byte, error) {
 	ci, err := info.ContainerInfo()
 	if err != nil {
 		return [][32]byte{}, err
@@ -739,6 +740,7 @@ func OptimizedContainerRoots(info *SszInfo, v reflect.Value, pc *proofCollector)
 
 }
 
+// hashContainerHelper generalizes stateutil.hashValidatorHelper for any SSZ container type.
 func (pc *proofCollector) hashContainerHelper(ci *containerInfo, v reflect.Value, roots [][32]byte, j int, groupSize, containerFieldRoots int, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for i := 0; i < groupSize; i++ {
@@ -753,6 +755,7 @@ func (pc *proofCollector) hashContainerHelper(ci *containerInfo, v reflect.Value
 	}
 }
 
+// ContainerFieldRoots generalizes stateutil.ValidatorFieldRoots for any SSZ container type.
 func (pc *proofCollector) ContainerFieldRoots(ci *containerInfo, v reflect.Value) ([][32]byte, error) {
 	v = dereferencePointer(v)
 

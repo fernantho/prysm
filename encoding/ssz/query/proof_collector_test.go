@@ -20,7 +20,7 @@ func TestOptimizedContainerRootsMatchesValidatorRoots(t *testing.T) {
 	require.NoError(t, err)
 
 	pc := newProofCollector()
-	roots, err := OptimizedContainerRoots(info, reflect.ValueOf(validators), pc)
+	roots, err := pc.optimizedContainerRoots(info, reflect.ValueOf(validators))
 	require.NoError(t, err)
 
 	expected, err := stateutil.OptimizedValidatorRoots(validators)
@@ -46,7 +46,7 @@ func BenchmarkOptimizedContainerRoots(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := OptimizedContainerRoots(info, v, pc)
+		_, err := pc.optimizedContainerRoots(info, v)
 		if err != nil {
 			b.Fatal(err)
 		}
