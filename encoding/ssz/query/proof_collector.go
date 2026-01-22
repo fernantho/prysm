@@ -718,7 +718,7 @@ func (pc *proofCollector) optimizedContainerRoots(info *SszInfo, v reflect.Value
 		go pc.hashContainerHelper(ci, v, roots, j, groupSize, containerFieldRoots, &wg)
 	}
 	for i := (n - 1) * groupSize; i < v.Len(); i++ {
-		fRoots, err := pc.ContainerFieldRoots(ci, v.Index(i))
+		fRoots, err := pc.containerFieldRoots(ci, v.Index(i))
 		if err != nil {
 			return [][32]byte{}, errors.Wrap(err, "could not compute validators merkleization")
 		}
@@ -744,7 +744,7 @@ func (pc *proofCollector) optimizedContainerRoots(info *SszInfo, v reflect.Value
 func (pc *proofCollector) hashContainerHelper(ci *containerInfo, v reflect.Value, roots [][32]byte, j int, groupSize, containerFieldRoots int, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for i := 0; i < groupSize; i++ {
-		fRoots, err := pc.ContainerFieldRoots(ci, v.Index(j*groupSize+i))
+		fRoots, err := pc.containerFieldRoots(ci, v.Index(j*groupSize+i))
 		if err != nil {
 			logrus.WithError(err).Error("Could not get container field roots")
 			return
@@ -755,8 +755,8 @@ func (pc *proofCollector) hashContainerHelper(ci *containerInfo, v reflect.Value
 	}
 }
 
-// ContainerFieldRoots generalizes stateutil.ValidatorFieldRoots for any SSZ container type.
-func (pc *proofCollector) ContainerFieldRoots(ci *containerInfo, v reflect.Value) ([][32]byte, error) {
+// containerFieldRoots generalizes stateutil.ValidatorFieldRoots for any SSZ container type.
+func (pc *proofCollector) containerFieldRoots(ci *containerInfo, v reflect.Value) ([][32]byte, error) {
 	v = dereferencePointer(v)
 
 	fieldCount := len(ci.order)
