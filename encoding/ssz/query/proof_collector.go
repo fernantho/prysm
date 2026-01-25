@@ -1,6 +1,7 @@
 package query
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"math/bits"
@@ -17,7 +18,7 @@ import (
 	"github.com/pkg/errors"
 	fastssz "github.com/prysmaticlabs/fastssz"
 	"github.com/prysmaticlabs/gohashtree"
-	"github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 )
 
 // proofCollector collects sibling hashes and leaves needed for Merkle proofs.
@@ -764,14 +765,14 @@ func (pc *proofCollector) optimizedContainerRoots(info *SszInfo, v reflect.Value
 		return [][32]byte{}, nil
 	}
 
-	wg := sync.WaitGroup{}
+	g, ctx := errgroup.WithContext(context.Background())
 	n := runtime.GOMAXPROCS(0)
 	rootsSize := v.Len() * containerFieldRoots
 	groupSize := v.Len() / n
 	roots := make([][32]byte, rootsSize)
-	wg.Add(n - 1)
+
 	for j := 0; j < n-1; j++ {
-		go pc.hashContainerHelper(ci, v, roots, j, groupSize, containerFieldRoots, &wg)
+		g.Go(pc.hashContainerHelper(ctx, ci, v, roots, j, groupSize, containerFieldRoots))
 	}
 	for i := (n - 1) * groupSize; i < v.Len(); i++ {
 		fRoots, err := pc.containerFieldRoots(ci, v.Index(i))
@@ -782,7 +783,9 @@ func (pc *proofCollector) optimizedContainerRoots(info *SszInfo, v reflect.Value
 			roots[i*containerFieldRoots+k] = root
 		}
 	}
-	wg.Wait()
+	if err := g.Wait(); err != nil {
+		return [][32]byte{}, err
+	}
 
 	// A container's tree can represented with a depth of floor(log2(containerFieldRoots))
 	// Using this property we can lay out all the individual fields of a
@@ -797,17 +800,24 @@ func (pc *proofCollector) optimizedContainerRoots(info *SszInfo, v reflect.Value
 }
 
 // hashContainerHelper generalizes stateutil.hashValidatorHelper for any SSZ container type.
-func (pc *proofCollector) hashContainerHelper(ci *containerInfo, v reflect.Value, roots [][32]byte, j int, groupSize, containerFieldRoots int, wg *sync.WaitGroup) {
-	defer wg.Done()
-	for i := 0; i < groupSize; i++ {
-		fRoots, err := pc.containerFieldRoots(ci, v.Index(j*groupSize+i))
-		if err != nil {
-			logrus.WithError(err).Error("Could not get container field roots")
-			return
+// Returns a function suitable for errgroup.Go that processes a group of containers.
+func (pc *proofCollector) hashContainerHelper(ctx context.Context, ci *containerInfo, v reflect.Value, roots [][32]byte, j int, groupSize, containerFieldRoots int) func() error {
+	return func() error {
+		for i := 0; i < groupSize; i++ {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
+			fRoots, err := pc.containerFieldRoots(ci, v.Index(j*groupSize+i))
+			if err != nil {
+				return errors.Wrap(err, "could not get container field roots")
+			}
+			for k, root := range fRoots {
+				roots[(j*groupSize+i)*containerFieldRoots+k] = root
+			}
 		}
-		for k, root := range fRoots {
-			roots[(j*groupSize+i)*containerFieldRoots+k] = root
-		}
+		return nil
 	}
 }
 

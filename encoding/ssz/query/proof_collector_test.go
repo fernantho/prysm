@@ -1,10 +1,10 @@
 package query
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/binary"
 	"reflect"
-	"sync"
 	"testing"
 
 	"github.com/OffchainLabs/go-bitfield"
@@ -510,10 +510,10 @@ func TestProofCollector_HashContainerHelper(t *testing.T) {
 	containerFieldRoots := len(ci.order)
 	roots := make([][32]byte, len(containers)*containerFieldRoots)
 
-	var wg sync.WaitGroup
-	wg.Add(1)
-	pc.hashContainerHelper(ci, reflect.ValueOf(containers), roots, 0, 1, containerFieldRoots, &wg)
-	wg.Wait()
+	ctx := context.Background()
+	fn := pc.hashContainerHelper(ctx, ci, reflect.ValueOf(containers), roots, 0, 1, containerFieldRoots)
+	err = fn()
+	require.NoError(t, err)
 
 	expected, err := pc.containerFieldRoots(ci, reflect.ValueOf(containers[0]))
 	require.NoError(t, err)
