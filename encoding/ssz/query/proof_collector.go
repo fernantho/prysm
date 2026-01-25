@@ -144,6 +144,18 @@ func (pc *proofCollector) collectLeaf(gindex uint64, leaf [32]byte) {
 	pc.Unlock()
 }
 
+// collectSibling stores the hash for a sibling node identified by gindex.
+// It only stores the hash if gindex was pre-registered via addTarget (present in requiredSiblings).
+// Writes to the collected siblings map are protected by the collector mutex.
+func (pc *proofCollector) collectSibling(gindex uint64, hash [32]byte) {
+	if _, ok := pc.requiredSiblings[gindex]; !ok {
+		return
+	}
+	pc.Lock()
+	pc.siblings[gindex] = hash
+	pc.Unlock()
+}
+
 // Merkleizers and proof collection methods
 
 // merkleize recursively traverses an SSZ info and computes the Merkle root of the subtree.
@@ -678,18 +690,6 @@ func (pc *proofCollector) mixinLengthAndCollect(currentGindex uint64, chunks [][
 		return [32]byte{}, err
 	}
 	return chunks[0], nil
-}
-
-// collectSibling stores the hash for a sibling node identified by gindex.
-// It only stores the hash if gindex was pre-registered via addTarget (present in requiredSiblings).
-// Writes to the collected siblings map are protected by the collector mutex.
-func (pc *proofCollector) collectSibling(gindex uint64, hash [32]byte) {
-	if _, ok := pc.requiredSiblings[gindex]; !ok {
-		return
-	}
-	pc.Lock()
-	pc.siblings[gindex] = hash
-	pc.Unlock()
 }
 
 // optimizedContainerRoots generalizes stateutil.OptimizedValidatorRoots for any SSZ container type.
