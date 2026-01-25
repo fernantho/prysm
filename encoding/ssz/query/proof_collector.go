@@ -156,6 +156,40 @@ func (pc *proofCollector) collectSibling(gindex uint64, hash [32]byte) {
 	pc.Unlock()
 }
 
+// hasTargetsInSubtree checks if any required gindex (leaf or sibling) falls within
+// the subtree rooted at subtreeRoot (strictly inside, not the root itself).
+// A gindex g is strictly inside the subtree of r if r is a proper ancestor of g.
+func (pc *proofCollector) hasTargetsInSubtree(subtreeRoot uint64) bool {
+	// Check all required leaves
+	for g := range pc.requiredLeaves {
+		if isStrictAncestor(subtreeRoot, g) {
+			return true
+		}
+	}
+	// Check all required siblings
+	for g := range pc.requiredSiblings {
+		if isStrictAncestor(subtreeRoot, g) {
+			return true
+		}
+	}
+	return false
+}
+
+// isStrictAncestor returns true if ancestor is a proper ancestor of descendant (not equal).
+func isStrictAncestor(ancestor, descendant uint64) bool {
+	if ancestor == 0 || descendant == 0 || ancestor == descendant {
+		return false
+	}
+	// Walk up from descendant until we reach ancestor or pass the root
+	for descendant > ancestor {
+		descendant /= 2
+		if descendant == ancestor {
+			return true
+		}
+	}
+	return false
+}
+
 // Merkleizers and proof collection methods
 
 // merkleize recursively traverses an SSZ info and computes the Merkle root of the subtree.
@@ -344,6 +378,28 @@ func (pc *proofCollector) merkleizeVectorBody(elemInfo *SszInfo, v reflect.Value
 		// Composite elements: compute each element root (no padding here; merkleizeVectorAndCollect pads).
 		chunks = make([][32]byte, length)
 
+		// Check if we can use optimized batch hashing for containers.
+		// This is only safe when no proof targets exist inside the element subtrees.
+		if elemInfo.sszType == Container {
+			hasTargetsInElements := false
+			for i := 0; i < length && !hasTargetsInElements; i++ {
+				elemGindex := subtreeRootGindex<<depth + uint64(i)
+				if pc.hasTargetsInSubtree(elemGindex) {
+					hasTargetsInElements = true
+				}
+			}
+			if !hasTargetsInElements {
+				var err error
+				chunks, err = pc.optimizedContainerRoots(elemInfo, v)
+				if err != nil {
+					return [32]byte{}, err
+				}
+				root := pc.merkleizeVectorAndCollect(chunks, subtreeRootGindex, uint64(depth))
+				return root, nil
+			}
+		}
+
+		// Fall back to per-element merkleization with proper gindices for proof collection.
 		// Parallel execution
 		workerCount := runtime.GOMAXPROCS(0)
 		if workerCount > length {
