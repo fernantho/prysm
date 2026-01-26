@@ -737,8 +737,8 @@ func (pc *proofCollector) optimizedContainerRoots(info *SszInfo, v reflect.Value
 		return [][32]byte{}, err
 	}
 
-	containerFieldRoots := len(ci.order)
-	depth := ssz.Depth(uint64(containerFieldRoots))
+	containerFieldRootsLength := len(ci.order)
+	depth := ssz.Depth(uint64(containerFieldRootsLength))
 	v = dereferencePointer(v)
 
 	// Exit early if no containers are provided.
@@ -748,27 +748,27 @@ func (pc *proofCollector) optimizedContainerRoots(info *SszInfo, v reflect.Value
 
 	g, ctx := errgroup.WithContext(context.Background())
 	n := runtime.GOMAXPROCS(0)
-	rootsSize := v.Len() * containerFieldRoots
+	rootsSize := v.Len() * containerFieldRootsLength
 	groupSize := v.Len() / n
 	roots := make([][32]byte, rootsSize)
 
 	for j := 0; j < n-1; j++ {
-		g.Go(pc.hashContainerHelper(ctx, ci, v, roots, j, groupSize, containerFieldRoots))
+		g.Go(hashContainerHelper(pc, ctx, ci, v, roots, j, groupSize, containerFieldRootsLength))
 	}
 	for i := (n - 1) * groupSize; i < v.Len(); i++ {
-		fRoots, err := pc.containerFieldRoots(ci, v.Index(i))
+		fRoots, err := containerFieldRoots(pc, ci, v.Index(i))
 		if err != nil {
 			return [][32]byte{}, errors.Wrap(err, "could not merkleize container")
 		}
 		for k, root := range fRoots {
-			roots[i*containerFieldRoots+k] = root
+			roots[i*containerFieldRootsLength+k] = root
 		}
 	}
 	if err := g.Wait(); err != nil {
 		return [][32]byte{}, err
 	}
 
-	// A container's tree can represented with a depth of floor(log2(containerFieldRoots))
+	// A container's tree can represented with a depth of floor(log2(containerFieldRootsLength))
 	// Using this property we can lay out all the individual fields of a
 	// container and hash them in single level using our vectorized routine.
 	for range depth {
@@ -782,7 +782,7 @@ func (pc *proofCollector) optimizedContainerRoots(info *SszInfo, v reflect.Value
 
 // hashContainerHelper generalizes stateutil.hashValidatorHelper for any SSZ container type.
 // Returns a function suitable for errgroup.Go that processes a group of containers.
-func (pc *proofCollector) hashContainerHelper(ctx context.Context, ci *containerInfo, v reflect.Value, roots [][32]byte, j int, groupSize, containerFieldRoots int) func() error {
+func hashContainerHelper(pc *proofCollector, ctx context.Context, ci *containerInfo, v reflect.Value, roots [][32]byte, j int, groupSize, containerFieldRootsLength int) func() error {
 	return func() error {
 		for i := 0; i < groupSize; i++ {
 			select {
@@ -790,12 +790,12 @@ func (pc *proofCollector) hashContainerHelper(ctx context.Context, ci *container
 				return ctx.Err()
 			default:
 			}
-			fRoots, err := pc.containerFieldRoots(ci, v.Index(j*groupSize+i))
+			fRoots, err := containerFieldRoots(pc, ci, v.Index(j*groupSize+i))
 			if err != nil {
 				return errors.Wrap(err, "could not get container field roots")
 			}
 			for k, root := range fRoots {
-				roots[(j*groupSize+i)*containerFieldRoots+k] = root
+				roots[(j*groupSize+i)*containerFieldRootsLength+k] = root
 			}
 		}
 		return nil
@@ -803,7 +803,7 @@ func (pc *proofCollector) hashContainerHelper(ctx context.Context, ci *container
 }
 
 // containerFieldRoots generalizes stateutil.ValidatorFieldRoots for any SSZ container type.
-func (pc *proofCollector) containerFieldRoots(ci *containerInfo, v reflect.Value) ([][32]byte, error) {
+func containerFieldRoots(pc *proofCollector, ci *containerInfo, v reflect.Value) ([][32]byte, error) {
 	v = dereferencePointer(v)
 
 	fieldCount := len(ci.order)
