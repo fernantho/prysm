@@ -122,14 +122,6 @@ func (pc *proofCollector) toProof() (*fastssz.Proof, error) {
 	return proof, nil
 }
 
-// registerRequiredSiblings computes all sibling generalized indices along the path
-// from the given gindex up to the root. These are the nodes whose hashes
-// are needed to construct a merkle proof.
-func (pc *proofCollector) registerRequiredSiblings(gindex uint64) {
-	pc.reset()
-	pc.addTarget(gindex)
-}
-
 // collectLeaf checks if the given gindex is a required leaf for the proof,
 // and if so, stores the provided leaf hash in the collector.
 func (pc *proofCollector) collectLeaf(gindex uint64, leaf [32]byte) {
@@ -151,40 +143,6 @@ func (pc *proofCollector) collectSibling(gindex uint64, hash [32]byte) {
 	pc.Lock()
 	pc.siblings[gindex] = hash
 	pc.Unlock()
-}
-
-// hasTargetsInSubtree checks if any required gindex (leaf or sibling) falls within
-// the subtree rooted at subtreeRoot (strictly inside, not the root itself).
-// A gindex g is strictly inside the subtree of r if r is a proper ancestor of g.
-func (pc *proofCollector) hasTargetsInSubtree(subtreeRoot uint64) bool {
-	// Check all required leaves
-	for g := range pc.requiredLeaves {
-		if isStrictAncestor(subtreeRoot, g) {
-			return true
-		}
-	}
-	// Check all required siblings
-	for g := range pc.requiredSiblings {
-		if isStrictAncestor(subtreeRoot, g) {
-			return true
-		}
-	}
-	return false
-}
-
-// isStrictAncestor returns true if ancestor is a proper ancestor of descendant (not equal).
-func isStrictAncestor(ancestor, descendant uint64) bool {
-	if ancestor == 0 || descendant == 0 || ancestor == descendant {
-		return false
-	}
-	// Walk up from descendant until we reach ancestor or pass the root
-	for descendant > ancestor {
-		descendant /= 2
-		if descendant == ancestor {
-			return true
-		}
-	}
-	return false
 }
 
 // Merkleizers and proof collection methods

@@ -83,25 +83,6 @@ func TestProofCollector_ToProof_NoLeaves(t *testing.T) {
 	require.NotNil(t, err)
 }
 
-func TestProofCollector_AddTarget_RegisterRequiredSiblings(t *testing.T) {
-	pc := newProofCollector()
-	pc.addTarget(6)
-
-	pc.registerRequiredSiblings(5)
-
-	_, hasLeaf5 := pc.requiredLeaves[5]
-	_, hasLeaf6 := pc.requiredLeaves[6] // this target was reseted by calling pc.registerRequiredSiblings(5)
-	_, hasSibling4 := pc.requiredSiblings[4]
-	_, hasSibling3 := pc.requiredSiblings[3]
-	_, hasSibling7 := pc.requiredSiblings[7]
-
-	require.Equal(t, true, hasLeaf5)
-	require.Equal(t, false, hasLeaf6)
-	require.Equal(t, true, hasSibling4)
-	require.Equal(t, true, hasSibling3)
-	require.Equal(t, false, hasSibling7)
-}
-
 func TestProofCollector_CollectLeaf(t *testing.T) {
 	pc := newProofCollector()
 	leaf := [32]byte{7}
@@ -128,68 +109,6 @@ func TestProofCollector_CollectSibling(t *testing.T) {
 	stored, ok := pc.siblings[4]
 	require.Equal(t, true, ok)
 	require.Equal(t, hash, stored)
-}
-
-func TestIsStrictAncestor(t *testing.T) {
-	testCases := []struct {
-		ancestor   uint64
-		descendant uint64
-		expected   bool
-	}{
-		{1, 1, false}, // same node - NOT a strict ancestor
-		{2, 2, false}, // same node - NOT a strict ancestor
-		{1, 2, true},  // root is strict ancestor of gindex 2
-		{1, 3, true},  // root is strict ancestor of gindex 3
-		{1, 15, true}, // root is strict ancestor of deep node
-		{2, 4, true},  // 2 is parent of 4
-		{2, 5, true},  // 2 is parent of 5
-		{2, 8, true},  // 2 is strict ancestor of 8 (grandchild)
-		{2, 3, false}, // 2 is not ancestor of 3 (sibling)
-		{2, 6, false}, // 2 is not ancestor of 6 (nephew)
-		{3, 2, false}, // 3 is not ancestor of 2
-		{4, 2, false}, // 4 is not ancestor of 2 (child checking parent)
-		{0, 1, false}, // invalid ancestor
-		{1, 0, false}, // invalid descendant
-	}
-
-	for _, tc := range testCases {
-		result := isStrictAncestor(tc.ancestor, tc.descendant)
-		require.Equal(t, tc.expected, result, "isStrictAncestor(%d, %d)", tc.ancestor, tc.descendant)
-	}
-}
-
-func TestProofCollector_HasTargetsInSubtree(t *testing.T) {
-	t.Run("no targets", func(t *testing.T) {
-		pc := newProofCollector()
-		require.Equal(t, false, pc.hasTargetsInSubtree(2))
-	})
-
-	t.Run("target outside subtree", func(t *testing.T) {
-		pc := newProofCollector()
-		pc.addTarget(3) // sibling of subtree root 2; sibling 2 is needed but it's the root, not inside
-		require.Equal(t, false, pc.hasTargetsInSubtree(2))
-	})
-
-	t.Run("target at subtree root", func(t *testing.T) {
-		pc := newProofCollector()
-		pc.addTarget(2) // target is the subtree root itself, not strictly inside
-		require.Equal(t, false, pc.hasTargetsInSubtree(2))
-	})
-
-	t.Run("target inside subtree (leaf)", func(t *testing.T) {
-		pc := newProofCollector()
-		pc.addTarget(9) // gindex 9 = 4*2+1 is child of 4, which is child of 2
-		require.Equal(t, true, pc.hasTargetsInSubtree(2))
-	})
-
-	t.Run("required sibling inside subtree", func(t *testing.T) {
-		pc := newProofCollector()
-		pc.addTarget(8) // gindex 8 needs sibling 9 (both strictly under subtree 2)
-		// addTarget(8) registers leaf 8 and siblings 9, 5, 3
-		require.Equal(t, true, pc.hasTargetsInSubtree(2))  // 8 and 9 are strictly inside subtree 2
-		require.Equal(t, false, pc.hasTargetsInSubtree(3)) // sibling 3 is the root of subtree 3, not inside
-		require.Equal(t, false, pc.hasTargetsInSubtree(6)) // nothing in subtree 6
-	})
 }
 
 func TestProofCollector_Merkleize_BasicTypes(t *testing.T) {

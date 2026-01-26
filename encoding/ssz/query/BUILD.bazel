@@ -28,7 +28,6 @@ go_library(
         "//encoding/ssz:go_default_library",
         "@com_github_prysmaticlabs_fastssz//:go_default_library",
         "@com_github_prysmaticlabs_go_bitfield//:go_default_library",
-        "@com_github_prysmaticlabs_gohashtree//:go_default_library",
     ],
 )
 
@@ -38,13 +37,16 @@ go_test(
         "generalized_index_test.go",
         "merkle_proof_test.go",
         "path_test.go",
+        "proof_collector_test.go",
         "query_test.go",
         "tag_parser_test.go",
     ],
+    embed = [":go_default_library"],
     deps = [
-        ":go_default_library",
+        "//beacon-chain/state/stateutil:go_default_library",
         "//consensus-types/blocks:go_default_library",
         "//consensus-types/primitives:go_default_library",
+        "//encoding/ssz:go_default_library",
         "//encoding/ssz/query/testutil:go_default_library",
         "//proto/prysm/v1alpha1:go_default_library",
         "//proto/ssz_query/testing:go_default_library",
