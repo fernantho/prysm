@@ -269,7 +269,7 @@ func TestProofCollector_Merkleize_BasicTypes(t *testing.T) {
 }
 
 func TestProofCollector_Merkleize_Container(t *testing.T) {
-	container := makeFixedTestContainer(0x01)
+	container := makeFixedTestContainer()
 
 	info, err := AnalyzeObject(container)
 	require.NoError(t, err)
@@ -290,7 +290,7 @@ func TestProofCollector_Merkleize_Container(t *testing.T) {
 }
 
 func TestProofCollector_Merkleize_Vector(t *testing.T) {
-	container := makeFixedTestContainer(0x02)
+	container := makeFixedTestContainer()
 	info, err := AnalyzeObject(container)
 	require.NoError(t, err)
 
@@ -319,8 +319,8 @@ func TestProofCollector_Merkleize_Vector(t *testing.T) {
 
 func TestProofCollector_Merkleize_List(t *testing.T) {
 	list := []*sszquerypb.FixedNestedContainer{
-		makeFixedNestedContainer(1, 0x10),
-		makeFixedNestedContainer(2, 0x20),
+		makeFixedNestedContainer(1),
+		makeFixedNestedContainer(2),
 	}
 	container := makeVariableTestContainer(list, bitfield.NewBitlist(1))
 	info, err := AnalyzeObject(container)
@@ -343,7 +343,7 @@ func TestProofCollector_Merkleize_List(t *testing.T) {
 }
 
 func TestProofCollector_Merkleize_Bitvector(t *testing.T) {
-	container := makeFixedTestContainer(0x03)
+	container := makeFixedTestContainer()
 	info, err := AnalyzeObject(container)
 	require.NoError(t, err)
 
@@ -385,7 +385,7 @@ func TestProofCollector_Merkleize_Bitlist(t *testing.T) {
 }
 
 func TestProofCollector_MerkleizeVectorBody_Basic(t *testing.T) {
-	container := makeFixedTestContainer(0x04)
+	container := makeFixedTestContainer()
 	info, err := AnalyzeObject(container)
 	require.NoError(t, err)
 
@@ -436,8 +436,8 @@ func TestProofCollector_MerkleizeVectorAndCollect(t *testing.T) {
 
 func TestProofCollector_MixinLengthAndCollect(t *testing.T) {
 	list := []*sszquerypb.FixedNestedContainer{
-		makeFixedNestedContainer(1, 0x10),
-		makeFixedNestedContainer(2, 0x20),
+		makeFixedNestedContainer(1),
+		makeFixedNestedContainer(2),
 	}
 	container := makeVariableTestContainer(list, bitfield.NewBitlist(1))
 	info, err := AnalyzeObject(container)
@@ -533,10 +533,10 @@ func makeTestValidator(i int) *ethpb.Validator {
 	}
 }
 
-func makeFixedNestedContainer(value uint64, seed byte) *sszquerypb.FixedNestedContainer {
+func makeFixedNestedContainer(value uint64) *sszquerypb.FixedNestedContainer {
 	value2 := make([]byte, 32)
 	for i := range value2 {
-		value2[i] = seed + byte(i)
+		value2[i] = byte(i)
 	}
 	return &sszquerypb.FixedNestedContainer{
 		Value1: value,
@@ -544,22 +544,22 @@ func makeFixedNestedContainer(value uint64, seed byte) *sszquerypb.FixedNestedCo
 	}
 }
 
-func makeFixedTestContainer(seed byte) *sszquerypb.FixedTestContainer {
+func makeFixedTestContainer() *sszquerypb.FixedTestContainer {
 	fieldBytes32 := make([]byte, 32)
 	for i := range fieldBytes32 {
-		fieldBytes32[i] = seed + byte(i)
+		fieldBytes32[i] = byte(i)
 	}
 
 	vectorField := make([]uint64, 24)
 	for i := range vectorField {
-		vectorField[i] = uint64(seed) + uint64(i)
+		vectorField[i] = uint64(i)
 	}
 
 	rows := make([][]byte, 5)
 	for i := range rows {
 		row := make([]byte, 32)
 		for j := range row {
-			row[j] = seed + byte(i) + byte(j)
+			row[j] = byte(i) + byte(j)
 		}
 		rows[i] = row
 	}
@@ -571,15 +571,15 @@ func makeFixedTestContainer(seed byte) *sszquerypb.FixedTestContainer {
 
 	trailing := make([]byte, 56)
 	for i := range trailing {
-		trailing[i] = seed + byte(i)
+		trailing[i] = byte(i)
 	}
 
 	return &sszquerypb.FixedTestContainer{
-		FieldUint32:            uint32(seed) + 1,
-		FieldUint64:            uint64(seed) + 2,
+		FieldUint32:            1,
+		FieldUint64:            2,
 		FieldBool:              true,
 		FieldBytes32:           fieldBytes32,
-		Nested:                 makeFixedNestedContainer(uint64(seed)+3, seed),
+		Nested:                 makeFixedNestedContainer(3),
 		VectorField:            vectorField,
 		TwoDimensionBytesField: rows,
 		Bitvector64Field:       bitvector64,
