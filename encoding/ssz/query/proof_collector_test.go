@@ -1,7 +1,6 @@
 package query
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/binary"
 	"reflect"
@@ -472,119 +471,6 @@ func TestProofCollector_MixinLengthAndCollect(t *testing.T) {
 	expectedBuf := append(storedLeaf[:], storedSibling[:]...)
 	expectedRoot := sha256.Sum256(expectedBuf)
 	require.Equal(t, expectedRoot, root)
-}
-
-func TestProofCollector_OptimizedContainerRoots(t *testing.T) {
-	containers := []*sszquerypb.FixedNestedContainer{
-		makeFixedNestedContainer(1, 0x05),
-		makeFixedNestedContainer(2, 0x06),
-	}
-	info, err := AnalyzeObject(containers[0])
-	require.NoError(t, err)
-
-	pc := newProofCollector()
-	roots, err := pc.optimizedContainerRoots(info, reflect.ValueOf(containers))
-	require.NoError(t, err)
-
-	require.Equal(t, len(containers), len(roots))
-	for i, c := range containers {
-		expected, err := c.HashTreeRoot()
-		require.NoError(t, err)
-		require.Equal(t, expected, roots[i])
-	}
-}
-
-func TestProofCollector_HashContainerHelper(t *testing.T) {
-	containers := []*sszquerypb.FixedTestContainer{
-		makeFixedTestContainer(0x07),
-		makeFixedTestContainer(0x08),
-	}
-	info, err := AnalyzeObject(containers[0])
-	require.NoError(t, err)
-
-	ci, err := info.ContainerInfo()
-	require.NoError(t, err)
-
-	pc := newProofCollector()
-	containerFieldRoots := len(ci.order)
-	roots := make([][32]byte, len(containers)*containerFieldRoots)
-
-	ctx := context.Background()
-	fn := pc.hashContainerHelper(ctx, ci, reflect.ValueOf(containers), roots, 0, 1, containerFieldRoots)
-	err = fn()
-	require.NoError(t, err)
-
-	expected, err := pc.containerFieldRoots(ci, reflect.ValueOf(containers[0]))
-	require.NoError(t, err)
-
-	for i := range expected {
-		require.Equal(t, expected[i], roots[i])
-	}
-}
-
-func TestProofCollector_ContainerFieldRoots(t *testing.T) {
-	container := makeFixedTestContainer(0x09)
-	info, err := AnalyzeObject(container)
-	require.NoError(t, err)
-
-	ci, err := info.ContainerInfo()
-	require.NoError(t, err)
-
-	pc := newProofCollector()
-	fieldRoots, err := pc.containerFieldRoots(ci, reflect.ValueOf(container))
-	require.NoError(t, err)
-	require.Equal(t, len(ci.order), len(fieldRoots))
-
-	computed := ssz.MerkleizeVector(fieldRoots, uint64(len(fieldRoots)))
-	expected, err := container.HashTreeRoot()
-	require.NoError(t, err)
-	require.Equal(t, expected, computed)
-}
-
-// Test to ensure that optimized container roots from ProofCollector
-// match those from the stateutil.OptimizedValidatorRoots function.
-func TestOptimizedContainerRootsMatchesValidatorRoots(t *testing.T) {
-	validators := make([]*ethpb.Validator, 16)
-	for i := range validators {
-		validators[i] = makeTestValidator(i)
-	}
-
-	info, err := AnalyzeObject(validators[0])
-	require.NoError(t, err)
-
-	pc := newProofCollector()
-	roots, err := pc.optimizedContainerRoots(info, reflect.ValueOf(validators))
-	require.NoError(t, err)
-
-	expected, err := stateutil.OptimizedValidatorRoots(validators)
-	require.NoError(t, err)
-
-	require.Equal(t, len(expected), len(roots))
-	for i := range expected {
-		require.Equal(t, expected[i], roots[i])
-	}
-}
-
-// Benchmark tests for ProofCollector
-func BenchmarkOptimizedContainerRoots(b *testing.B) {
-	validators := make([]*ethpb.Validator, 1000)
-	for i := range validators {
-		validators[i] = makeTestValidator(i)
-	}
-
-	info, err := AnalyzeObject(validators[0])
-	require.NoError(b, err)
-
-	pc := newProofCollector()
-	v := reflect.ValueOf(validators)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_, err := pc.optimizedContainerRoots(info, v)
-		if err != nil {
-			b.Fatal(err)
-		}
-	}
 }
 
 func BenchmarkOptimizedValidatorRoots(b *testing.B) {
