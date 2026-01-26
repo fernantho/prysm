@@ -725,22 +725,13 @@ func (pc *proofCollector) merkleizeVectorAndCollect(elements [][32]byte, subtree
 // - [32]byte: mixed-in Merkle root (or zero value on hashing error).
 // - error: any error encountered during hashing.
 func (pc *proofCollector) mixinLengthAndCollect(currentGindex uint64, chunks [][32]byte) ([32]byte, error) {
-	dataRoot := chunks[0]
-	lengthHash := chunks[1]
+	dataRoot, lengthHash := chunks[0], chunks[1]
+	dataRootGindex, lengthHashGindex := currentGindex*2, currentGindex*2+1
 
-	dataRootGindex := currentGindex * 2
-	lengthHashGindex := currentGindex*2 + 1
-
-	// Check if dataRoot is a sibling we need to collect
 	pc.collectSibling(dataRootGindex, dataRoot)
-
-	// Check if lengthHash is a sibling we need to collect
 	pc.collectSibling(lengthHashGindex, lengthHash)
 
-	// Check if dataRoot is a leaf we need to collect
 	pc.collectLeaf(dataRootGindex, dataRoot)
-
-	// Check if lengthHash is a leaf we need to collect
 	pc.collectLeaf(lengthHashGindex, lengthHash)
 
 	if err := gohashtree.Hash(chunks, chunks); err != nil {
