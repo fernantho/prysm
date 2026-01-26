@@ -17,7 +17,6 @@ import (
 	ssz "github.com/OffchainLabs/prysm/v7/encoding/ssz"
 	"github.com/pkg/errors"
 	fastssz "github.com/prysmaticlabs/fastssz"
-	"github.com/prysmaticlabs/gohashtree"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -549,10 +548,7 @@ func (pc *proofCollector) merkleizeList(info *SszInfo, v reflect.Value, currentG
 
 	// Handle the length mixin level (and proof bookkeeping at this level).
 	// Compute the final list root: hash(dataRoot || lengthHash)
-	root, err := pc.mixinLengthAndCollect(currentGindex, chunks)
-	if err != nil {
-		return [32]byte{}, err
-	}
+	root := pc.mixinLengthAndCollect(currentGindex, chunks)
 
 	// If the list root itself is the target
 	pc.collectLeaf(currentGindex, root)
@@ -661,10 +657,7 @@ func (pc *proofCollector) merkleizeBitlist(info *SszInfo, v reflect.Value, curre
 	}
 
 	// Handle the length mixin level (and proof bookkeeping at this level).
-	root, err := pc.mixinLengthAndCollect(currentGindex, chunks)
-	if err != nil {
-		return [32]byte{}, err
-	}
+	root := pc.mixinLengthAndCollect(currentGindex, chunks)
 
 	pc.collectLeaf(currentGindex, root)
 
@@ -724,7 +717,7 @@ func (pc *proofCollector) merkleizeVectorAndCollect(elements [][32]byte, subtree
 // Returns:
 // - [32]byte: mixed-in Merkle root (or zero value on hashing error).
 // - error: any error encountered during hashing.
-func (pc *proofCollector) mixinLengthAndCollect(currentGindex uint64, chunks [][32]byte) ([32]byte, error) {
+func (pc *proofCollector) mixinLengthAndCollect(currentGindex uint64, chunks [][32]byte) [32]byte {
 	dataRoot, lengthHash := chunks[0], chunks[1]
 	dataRootGindex, lengthHashGindex := currentGindex*2, currentGindex*2+1
 
@@ -734,10 +727,7 @@ func (pc *proofCollector) mixinLengthAndCollect(currentGindex uint64, chunks [][
 	pc.collectLeaf(dataRootGindex, dataRoot)
 	pc.collectLeaf(lengthHashGindex, lengthHash)
 
-	if err := gohashtree.Hash(chunks, chunks); err != nil {
-		return [32]byte{}, err
-	}
-	return chunks[0], nil
+	return ssz.MixInLength(dataRoot, lengthHash[:])
 }
 
 // optimizedContainerRoots generalizes stateutil.OptimizedValidatorRoots for any SSZ container type.
