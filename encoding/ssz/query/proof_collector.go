@@ -29,7 +29,7 @@ import (
 //
 // Concurrency:
 // - required* maps are read-only during merkleization.
-// - siblings/leaves writes are protected by mu.
+// - siblings/leaves writes are protected by mutex.
 type proofCollector struct {
 	sync.Mutex
 
