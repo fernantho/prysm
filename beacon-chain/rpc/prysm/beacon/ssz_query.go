@@ -1,8 +1,10 @@
 package beacon
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 
@@ -10,11 +12,14 @@ import (
 	"github.com/OffchainLabs/prysm/v7/api/server/structs"
 	"github.com/OffchainLabs/prysm/v7/beacon-chain/rpc/eth/shared"
 	"github.com/OffchainLabs/prysm/v7/beacon-chain/rpc/lookup"
+	"github.com/OffchainLabs/prysm/v7/beacon-chain/state"
+	"github.com/OffchainLabs/prysm/v7/beacon-chain/state/state-native/types"
 	"github.com/OffchainLabs/prysm/v7/encoding/ssz/query"
 	"github.com/OffchainLabs/prysm/v7/monitoring/tracing/trace"
 	"github.com/OffchainLabs/prysm/v7/network/httputil"
 	sszquerypb "github.com/OffchainLabs/prysm/v7/proto/ssz_query"
 	"github.com/OffchainLabs/prysm/v7/runtime/version"
+	ssz "github.com/prysmaticlabs/fastssz"
 )
 
 // QueryBeaconState handles SSZ Query request for BeaconState.
@@ -95,9 +100,25 @@ func (s *Server) QueryBeaconState(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := &sszquerypb.SSZQueryResponse{
-		Root:   stateRoot,
-		Result: encodedState[offset : offset+length],
+	result := encodedState[offset : offset+length]
+
+	var response ssz.Marshaler
+	if req.IncludeProof {
+		proof, err := getBeaconStateProof(ctx, st, info, path)
+		if err != nil {
+			httputil.HandleError(w, "Could not compute merkle proofs: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		response = &sszquerypb.SSZQueryResponseWithProof{
+			Root:   stateRoot,
+			Result: result,
+			Proof:  proof,
+		}
+	} else {
+		response = &sszquerypb.SSZQueryResponse{
+			Root:   stateRoot,
+			Result: result,
+		}
 	}
 
 	responseSsz, err := response.MarshalSSZ()
@@ -199,4 +220,45 @@ func (s *Server) QueryBeaconBlock(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set(api.VersionHeader, version.String(signedBlock.Version()))
 	httputil.WriteSsz(w, responseSsz)
+}
+
+// getBeaconStateProof computes the merkle proof for the given path in the BeaconState.
+// Optimized by using hybrid approach:
+// - Leverage the native state's proof generation for top-level fields.
+// - Use generic proof collector for deeper fields.
+func getBeaconStateProof(ctx context.Context, st state.BeaconState, info *query.SszInfo, path query.Path) (*sszquerypb.SSZQueryProof, error) {
+	if len(path.Elements) == 0 {
+		return nil, errors.New("cannot compute proof for empty path")
+	}
+
+	if len(path.Elements) > 1 {
+		return nil, errors.New("deep proofs not supported yet")
+	}
+
+	// Single element path: we prove directly its field.
+	elem := path.Elements[0]
+	if elem.Index != nil {
+		return nil, errors.New("indexed elements not supported yet")
+	}
+
+	gindex, err := query.GetGeneralizedIndexFromPath(info, path)
+	if err != nil {
+		return nil, fmt.Errorf("could not compute gindex: %w", err)
+	}
+
+	fieldIndex, ok := types.FieldIndexByName(elem.Name)
+	if !ok {
+		return nil, fmt.Errorf("unknown field name: %s", elem.Name)
+	}
+
+	leaf, proofs, err := st.ProofByFieldIndex(ctx, fieldIndex)
+	if err != nil {
+		return nil, fmt.Errorf("could not compute proof for field %q: %w", elem.Name, err)
+	}
+
+	return &sszquerypb.SSZQueryProof{
+		Leaf:   leaf,
+		Proofs: proofs,
+		Gindex: gindex,
+	}, nil
 }

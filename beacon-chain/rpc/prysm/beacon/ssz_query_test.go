@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -18,6 +19,7 @@ import (
 	"github.com/OffchainLabs/prysm/v7/consensus-types/blocks"
 	"github.com/OffchainLabs/prysm/v7/consensus-types/interfaces"
 	"github.com/OffchainLabs/prysm/v7/consensus-types/primitives"
+	"github.com/OffchainLabs/prysm/v7/encoding/ssz/query"
 	eth "github.com/OffchainLabs/prysm/v7/proto/prysm/v1alpha1"
 	sszquerypb "github.com/OffchainLabs/prysm/v7/proto/ssz_query"
 	"github.com/OffchainLabs/prysm/v7/runtime/version"
@@ -25,49 +27,64 @@ import (
 	"github.com/OffchainLabs/prysm/v7/testing/require"
 	"github.com/OffchainLabs/prysm/v7/testing/util"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	ssz "github.com/prysmaticlabs/fastssz"
 )
 
 func TestQueryBeaconState(t *testing.T) {
 	ctx := context.Background()
 
 	st, _ := util.DeterministicGenesisState(t, 16)
-	require.NoError(t, st.SetSlot(primitives.Slot(42)))
+	slot := primitives.Slot(42)
+	require.NoError(t, st.SetSlot(slot))
+	require.NoError(t, st.UpdateBalancesAtIndex(0, 42000000000))
+
 	stateRoot, err := st.HashTreeRoot(ctx)
 	require.NoError(t, err)
-	require.NoError(t, st.UpdateBalancesAtIndex(0, 42000000000))
+
+	// Define expected values for various paths
+	slotExpectedValue, _ := slot.MarshalSSZ()
+	headerExpectedValue, _ := st.LatestBlockHeader().MarshalSSZ()
+	validatorsExpectedValue := func() []byte {
+		b := make([]byte, 0)
+		validators := st.Validators()
+		for _, v := range validators {
+			vBytes, _ := v.MarshalSSZ()
+			b = append(b, vBytes...)
+		}
+		return b
+	}()
 
 	tests := []struct {
 		path          string
 		expectedValue []byte
+		includeProof  bool
 	}{
 		{
-			path: ".slot",
-			expectedValue: func() []byte {
-				slot := st.Slot()
-				result, _ := slot.MarshalSSZ()
-				return result
-			}(),
+			path:          ".slot",
+			expectedValue: slotExpectedValue,
 		},
 		{
-			path: ".latest_block_header",
-			expectedValue: func() []byte {
-				header := st.LatestBlockHeader()
-				result, _ := header.MarshalSSZ()
-				return result
-			}(),
+			path:          ".slot",
+			expectedValue: slotExpectedValue,
+			includeProof:  true,
 		},
 		{
-			path: ".validators",
-			expectedValue: func() []byte {
-				b := make([]byte, 0)
-				validators := st.Validators()
-				for _, v := range validators {
-					vBytes, _ := v.MarshalSSZ()
-					b = append(b, vBytes...)
-				}
-				return b
-
-			}(),
+			path:          ".latest_block_header",
+			expectedValue: headerExpectedValue,
+		},
+		{
+			path:          ".latest_block_header",
+			expectedValue: headerExpectedValue,
+			includeProof:  true,
+		},
+		{
+			path:          ".validators",
+			expectedValue: validatorsExpectedValue,
+		},
+		{
+			path:          ".validators",
+			expectedValue: validatorsExpectedValue,
+			includeProof:  true,
 		},
 		{
 			path: ".validators[0]",
@@ -96,7 +113,7 @@ func TestQueryBeaconState(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.path, func(t *testing.T) {
+		t.Run(fmt.Sprintf("path=%s, includeProof=%t", tt.path, tt.includeProof), func(t *testing.T) {
 			chainService := &chainMock.ChainService{Optimistic: false, FinalizedRoots: make(map[[32]byte]bool)}
 			s := &Server{
 				OptimisticModeFetcher: chainService,
@@ -108,7 +125,8 @@ func TestQueryBeaconState(t *testing.T) {
 			}
 
 			requestBody := &structs.SSZQueryRequest{
-				Query: tt.path,
+				Query:        tt.path,
+				IncludeProof: tt.includeProof,
 			}
 			var buf bytes.Buffer
 			require.NoError(t, json.NewEncoder(&buf).Encode(requestBody))
@@ -122,13 +140,38 @@ func TestQueryBeaconState(t *testing.T) {
 			require.Equal(t, http.StatusOK, writer.Code)
 			assert.Equal(t, version.String(version.Phase0), writer.Header().Get(api.VersionHeader))
 
-			expectedResponse := &sszquerypb.SSZQueryResponse{
-				Root:   stateRoot[:],
-				Result: tt.expectedValue,
+			if !tt.includeProof {
+				expectedResponse := &sszquerypb.SSZQueryResponse{
+					Root:   stateRoot[:],
+					Result: tt.expectedValue,
+				}
+				sszExpectedResponse, err := expectedResponse.MarshalSSZ()
+				require.NoError(t, err)
+				require.DeepEqual(t, sszExpectedResponse, writer.Body.Bytes())
+				return
 			}
-			sszExpectedResponse, err := expectedResponse.MarshalSSZ()
+
+			responseData := writer.Body.Bytes()
+			var response sszquerypb.SSZQueryResponseWithProof
+			require.NoError(t, response.UnmarshalSSZ(responseData))
+
+			// Verify the proof is included
+			require.NotNil(t, response.Proof)
+			require.Equal(t, true, len(response.Proof.Proofs) > 0, "merkle proof should not be empty")
+
+			// Verify the result
+			require.DeepEqual(t, tt.expectedValue, response.Result)
+			require.DeepEqual(t, stateRoot[:], response.Root)
+
+			// Verify the merkle proof
+			merkleProof := &ssz.Proof{
+				Index:  int(response.Proof.Gindex),
+				Leaf:   response.Proof.Leaf,
+				Hashes: response.Proof.Proofs,
+			}
+			isValid, err := ssz.VerifyProof(response.Root, merkleProof)
 			require.NoError(t, err)
-			assert.DeepEqual(t, sszExpectedResponse, writer.Body.Bytes())
+			require.Equal(t, true, isValid, "merkle proof verification failed")
 		})
 	}
 }
@@ -330,6 +373,64 @@ func TestQueryBeaconBlock(t *testing.T) {
 			sszExpectedResponse, err := expectedResponse.MarshalSSZ()
 			require.NoError(t, err)
 			assert.DeepEqual(t, sszExpectedResponse, writer.Body.Bytes())
+		})
+	}
+}
+
+func TestGetBeaconStateProof(t *testing.T) {
+	ctx := context.Background()
+
+	st, _ := util.DeterministicGenesisState(t, 16)
+	require.NoError(t, st.SetSlot(primitives.Slot(42)))
+	require.NoError(t, st.UpdateBalancesAtIndex(0, 42000000000))
+
+	stateRoot, err := st.HashTreeRoot(ctx)
+	require.NoError(t, err)
+
+	info, err := query.AnalyzeObject(st.ToProtoUnsafe().(query.SSZObject))
+	require.NoError(t, err)
+
+	tests := []struct {
+		path        string
+		expectError bool
+	}{
+		{
+			// Basic SSZ type
+			path: ".slot",
+		},
+		{
+			// Container SSZ type
+			path: ".latest_block_header",
+		},
+		{
+			// List SSZ type
+			path: ".validators",
+		},
+		{
+			path:        ".wrong_path",
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			path, err := query.ParsePath(tt.path)
+			require.NoError(t, err)
+
+			proof, err := getBeaconStateProof(ctx, st, info, path)
+			if tt.expectError {
+				require.NotNil(t, err)
+				return
+			}
+			require.NoError(t, err)
+
+			isValid, err := ssz.VerifyProof(stateRoot[:], &ssz.Proof{
+				Index:  int(proof.Gindex),
+				Leaf:   proof.Leaf,
+				Hashes: proof.Proofs,
+			})
+			require.NoError(t, err)
+			require.Equal(t, true, isValid)
 		})
 	}
 }
