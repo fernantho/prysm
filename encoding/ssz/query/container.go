@@ -10,6 +10,15 @@ type containerInfo struct {
 	fixedOffset uint64
 }
 
+// Fields returns the field map of the container.
+func (ci *containerInfo) Fields() map[string]*fieldInfo {
+	if ci == nil {
+		return nil
+	}
+
+	return ci.fields
+}
+
 type fieldInfo struct {
 	// sszInfo contains the SSZ information of the field.
 	sszInfo *SszInfo
@@ -17,4 +26,13 @@ type fieldInfo struct {
 	offset uint64
 	// goFieldName is the name of the field in Go struct.
 	goFieldName string
+}
+
+// SszInfo returns the SszInfo of the field.
+func (fi *fieldInfo) SszInfo() *SszInfo {
+	if fi == nil {
+		return nil
+	}
+
+	return fi.sszInfo
 }
