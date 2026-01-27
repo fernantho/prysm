@@ -106,7 +106,7 @@ func (s *Server) QueryBeaconState(w http.ResponseWriter, r *http.Request) {
 	if req.IncludeProof {
 		proof, err := getBeaconStateProof(ctx, st, info, path)
 		if err != nil {
-			httputil.HandleError(w, "Could not compute merkle proofs: "+err.Error(), http.StatusInternalServerError)
+			httputil.HandleError(w, "Could not compute merkle proofs for path "+req.Query+": "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 		response = &sszquerypb.SSZQueryResponseWithProof{
@@ -224,41 +224,85 @@ func (s *Server) QueryBeaconBlock(w http.ResponseWriter, r *http.Request) {
 
 // getBeaconStateProof computes the merkle proof for the given path in the BeaconState.
 // Optimized by using hybrid approach:
-// - Leverage the native state's proof generation for top-level fields.
-// - Use generic proof collector for deeper fields.
+// - Leverage the native state's proof generation for anchor fields.
+// - If needed, use generic proof collector for deeper fields, starting from the anchor.
 func getBeaconStateProof(ctx context.Context, st state.BeaconState, info *query.SszInfo, path query.Path) (*sszquerypb.SSZQueryProof, error) {
 	if len(path.Elements) == 0 {
 		return nil, errors.New("cannot compute proof for empty path")
 	}
 
-	if len(path.Elements) > 1 {
-		return nil, errors.New("deep proofs not supported yet")
+	anchorField := path.Elements[0]
+	if anchorField.Index != nil {
+		return nil, errors.New("indexed elements for anchor field not supported yet")
 	}
 
-	// Single element path: we prove directly its field.
-	elem := path.Elements[0]
-	if elem.Index != nil {
-		return nil, errors.New("indexed elements not supported yet")
-	}
-
-	gindex, err := query.GetGeneralizedIndexFromPath(info, path)
+	anchorGindex, err := query.GetGeneralizedIndexFromPath(info, query.Path{Elements: []query.PathElement{anchorField}})
 	if err != nil {
-		return nil, fmt.Errorf("could not compute gindex: %w", err)
+		return nil, fmt.Errorf("could not compute gindex for anchor field %q: %w", anchorField.Name, err)
 	}
 
-	fieldIndex, ok := types.FieldIndexByName(elem.Name)
+	fieldIndex, ok := types.FieldIndexByName(anchorField.Name)
 	if !ok {
-		return nil, fmt.Errorf("unknown field name: %s", elem.Name)
+		return nil, fmt.Errorf("unknown field name: %s", anchorField.Name)
 	}
 
-	leaf, proofs, err := st.ProofByFieldIndex(ctx, fieldIndex)
+	anchorLeaf, topProofs, err := st.ProofByFieldIndex(ctx, fieldIndex)
 	if err != nil {
-		return nil, fmt.Errorf("could not compute proof for field %q: %w", elem.Name, err)
+		return nil, fmt.Errorf("could not compute proof for anchor field %q: %w", anchorField.Name, err)
+	}
+
+	if len(path.Elements) == 1 {
+		// No deeper path, early return the top-level proof.
+		return &sszquerypb.SSZQueryProof{
+			Leaf:   anchorLeaf,
+			Proofs: topProofs,
+			Gindex: anchorGindex,
+		}, nil
+	}
+
+	// Note: After this line, we now have to deepen the path from the anchor field.
+	// A proof collector instance works generically for any SSZ object,
+	// so we can use it to compute the deeper proof.
+
+	targetGindex, err := query.GetGeneralizedIndexFromPath(info, path)
+	if err != nil {
+		return nil, fmt.Errorf("could not compute full gindex: %w", err)
+	}
+
+	relativeGindex, err := query.ComputeRelativeGindex(anchorGindex, targetGindex)
+	if err != nil {
+		return nil, fmt.Errorf("could not compute relative gindex from the anchor: %w", err)
+	}
+
+	ci, err := info.ContainerInfo()
+	if err != nil {
+		return nil, fmt.Errorf("could not get container info: %w", err)
+	}
+
+	fields := ci.Fields()
+	if fields == nil {
+		return nil, errors.New("container has no fields")
+	}
+
+	field, ok := fields[anchorField.Name]
+	if !ok {
+		return nil, fmt.Errorf("field %q not found in container", anchorField.Name)
+	}
+
+	sszInfo := field.SszInfo()
+	if sszInfo == nil {
+		return nil, fmt.Errorf("field %q has no SSZ info", anchorField.Name)
+	}
+
+	bottomProof, err := sszInfo.Prove(relativeGindex)
+	if err != nil {
+		return nil, fmt.Errorf("could not generate proof starting from the anchor field %q: %w", anchorField.Name, err)
 	}
 
 	return &sszquerypb.SSZQueryProof{
-		Leaf:   leaf,
-		Proofs: proofs,
-		Gindex: gindex,
+		Leaf: bottomProof.Leaf,
+		// Note: proofs are sorted in decreasing order of gindex,
+		Proofs: append(bottomProof.Hashes, topProofs...),
+		Gindex: targetGindex,
 	}, nil
 }

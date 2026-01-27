@@ -44,6 +44,11 @@ func TestQueryBeaconState(t *testing.T) {
 	// Define expected values for various paths
 	slotExpectedValue, _ := slot.MarshalSSZ()
 	headerExpectedValue, _ := st.LatestBlockHeader().MarshalSSZ()
+	proposerIndexExpectedValue := func() []byte {
+		b := make([]byte, 8)
+		binary.LittleEndian.PutUint64(b, uint64(st.LatestBlockHeader().ProposerIndex))
+		return b
+	}()
 	validatorsExpectedValue := func() []byte {
 		b := make([]byte, 0)
 		validators := st.Validators()
@@ -75,6 +80,17 @@ func TestQueryBeaconState(t *testing.T) {
 		{
 			path:          ".latest_block_header",
 			expectedValue: headerExpectedValue,
+			includeProof:  true,
+		},
+
+		{
+			path:          ".latest_block_header.proposer_index",
+			expectedValue: proposerIndexExpectedValue,
+		},
+
+		{
+			path:          ".latest_block_header.proposer_index",
+			expectedValue: proposerIndexExpectedValue,
 			includeProof:  true,
 		},
 		{
@@ -405,6 +421,10 @@ func TestGetBeaconStateProof(t *testing.T) {
 		{
 			// List SSZ type
 			path: ".validators",
+		},
+		{
+			// Accessing a field in a container
+			path: ".latest_block_header.proposer_index",
 		},
 		{
 			path:        ".wrong_path",
