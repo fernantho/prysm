@@ -3,6 +3,7 @@ package query
 import (
 	"errors"
 	"fmt"
+	"math/bits"
 
 	"github.com/OffchainLabs/prysm/v7/encoding/ssz"
 )
@@ -97,6 +98,35 @@ func GetGeneralizedIndexFromPath(info *SszInfo, path Path) (uint64, error) {
 	}
 
 	return currentIndex, nil
+}
+
+// ComputeRelativeGindex computes the generalized index of a child
+// relative to its parent generalized index.
+// For example, given parent gindex 36 (100100) and child gindex 289 (100100001),
+// the relative gindex would be 9 (1001).
+// Used for computing relative gindex for proof collection.
+func ComputeRelativeGindex(parent, child uint64) (uint64, error) {
+	if parent == 0 || child == 0 {
+		return 0, fmt.Errorf("parent and child must be non-zero")
+	}
+
+	pLen := bits.Len64(parent)
+	cLen := bits.Len64(child)
+
+	if pLen >= cLen {
+		return 0, fmt.Errorf("parent gindex %d is not an ancestor of child gindex %d", parent, child)
+	}
+
+	shift := cLen - pLen
+	if shift <= 0 {
+		return 0, fmt.Errorf("invalid shift calculation")
+	}
+
+	// Extract the "shift" least significant bits from child
+	mask := (uint64(1) << shift) - 1
+	relativeOffset := child & mask
+
+	return (1 << shift) | relativeOffset, nil
 }
 
 // getContainerFieldByName finds a container field by its name
