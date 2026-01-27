@@ -45,7 +45,8 @@ type Prover interface {
 	CurrentSyncCommitteeProof(ctx context.Context) ([][]byte, error)
 	NextSyncCommitteeProof(ctx context.Context) ([][]byte, error)
 
-	ProofByFieldIndex(ctx context.Context, f types.FieldIndex) ([][]byte, error)
+	// ProofByFieldIndex returns the field root (leaf) and the proof hashes for the given field.
+	ProofByFieldIndex(ctx context.Context, f types.FieldIndex) ([]byte, [][]byte, error)
 }
 
 // ReadOnlyBeaconState defines a struct which only has read access to beacon state methods.

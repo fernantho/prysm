@@ -40,12 +40,14 @@ func (b *BeaconState) NextSyncCommitteeGeneralizedIndex() (uint64, error) {
 
 // CurrentSyncCommitteeProof from the state's Merkle trie representation.
 func (b *BeaconState) CurrentSyncCommitteeProof(ctx context.Context) ([][]byte, error) {
-	return b.ProofByFieldIndex(ctx, types.CurrentSyncCommittee)
+	_, proof, err := b.ProofByFieldIndex(ctx, types.CurrentSyncCommittee)
+	return proof, err
 }
 
 // NextSyncCommitteeProof from the state's Merkle trie representation.
 func (b *BeaconState) NextSyncCommitteeProof(ctx context.Context) ([][]byte, error) {
-	return b.ProofByFieldIndex(ctx, types.NextSyncCommittee)
+	_, proof, err := b.ProofByFieldIndex(ctx, types.NextSyncCommittee)
+	return proof, err
 }
 
 // FinalizedRootProof crafts a Merkle proof for the finalized root
@@ -54,7 +56,7 @@ func (b *BeaconState) FinalizedRootProof(ctx context.Context) ([][]byte, error) 
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
-	branchProof, err := b.proofByFieldIndex(ctx, types.FinalizedCheckpoint)
+	_, branchProof, err := b.proofByFieldIndex(ctx, types.FinalizedCheckpoint)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +74,8 @@ func (b *BeaconState) FinalizedRootProof(ctx context.Context) ([][]byte, error) 
 }
 
 // ProofByFieldIndex constructs proofs for given field index with lock acquisition.
-func (b *BeaconState) ProofByFieldIndex(ctx context.Context, f types.FieldIndex) ([][]byte, error) {
+// Returns the field root (leaf) and the proof hashes.
+func (b *BeaconState) ProofByFieldIndex(ctx context.Context, f types.FieldIndex) ([]byte, [][]byte, error) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
@@ -81,19 +84,23 @@ func (b *BeaconState) ProofByFieldIndex(ctx context.Context, f types.FieldIndex)
 
 // proofByFieldIndex constructs proofs for given field index.
 // Important: it is assumed that beacon state mutex is locked when calling this method.
-func (b *BeaconState) proofByFieldIndex(ctx context.Context, f types.FieldIndex) ([][]byte, error) {
+// Returns the field root (leaf) and the proof hashes.
+func (b *BeaconState) proofByFieldIndex(ctx context.Context, f types.FieldIndex) ([]byte, [][]byte, error) {
 	err := b.validateFieldIndex(f)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if err := b.initializeMerkleLayers(ctx); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := b.recomputeDirtyFields(ctx); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return trie.ProofFromMerkleLayers(b.merkleLayers, f.RealPosition()), nil
+
+	leaf := b.merkleLayers[0][f.RealPosition()]
+	proof := trie.ProofFromMerkleLayers(b.merkleLayers, f.RealPosition())
+	return leaf, proof, nil
 }
 
 func (b *BeaconState) validateFieldIndex(f types.FieldIndex) error {
