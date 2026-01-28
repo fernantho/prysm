@@ -423,6 +423,18 @@ func TestGetBeaconStateProof(t *testing.T) {
 			path: ".validators",
 		},
 		{
+			// Accessing an element in a list
+			path: ".validators[0]",
+		},
+		// {
+		// 	// Accessing an element in a list
+		// 	path: ".validators[0].effective_balance",
+		// },
+		{
+			// Accessing an element in a vector
+			path: ".block_roots[0]",
+		},
+		{
 			// Accessing a field in a container
 			path: ".latest_block_header.proposer_index",
 		},

@@ -2,6 +2,7 @@ package beacon
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -232,11 +233,19 @@ func getBeaconStateProof(ctx context.Context, st state.BeaconState, info *query.
 	}
 
 	anchorField := path.Elements[0]
-	if anchorField.Index != nil {
-		return nil, errors.New("indexed elements for anchor field not supported yet")
+	anchorPath := query.Path{Elements: []query.PathElement{anchorField}}
+
+	ci, err := info.ContainerInfo()
+	if err != nil {
+		return nil, fmt.Errorf("could not get container info: %w", err)
 	}
 
-	anchorGindex, err := query.GetGeneralizedIndexFromPath(info, query.Path{Elements: []query.PathElement{anchorField}})
+	anchorSszInfo, err := ci.FieldInfo(anchorField.Name)
+	if err != nil {
+		return nil, fmt.Errorf("could not get field info for anchor field %q: %w", anchorField.Name, err)
+	}
+
+	anchorGindex, err := query.GetGeneralizedIndexFromPath(info, anchorPath)
 	if err != nil {
 		return nil, fmt.Errorf("could not compute gindex for anchor field %q: %w", anchorField.Name, err)
 	}
@@ -249,6 +258,54 @@ func getBeaconStateProof(ctx context.Context, st state.BeaconState, info *query.
 	anchorLeaf, topProofs, err := st.ProofByFieldIndex(ctx, fieldIndex)
 	if err != nil {
 		return nil, fmt.Errorf("could not compute proof for anchor field %q: %w", anchorField.Name, err)
+	}
+
+	if anchorField.Index != nil {
+		// Accessing an element within a list/vector:
+		// need to prepend element proofs.
+		elementLeaf, elementProof, err := st.ProofForFieldElement(ctx, fieldIndex, uint64(*anchorField.Index))
+		if err != nil {
+			return nil, fmt.Errorf("could not compute proof for element %s[%d]: %w", anchorField.Name, *anchorField.Index, err)
+		}
+
+		anchorLeaf = elementLeaf
+
+		switch anchorSszInfo.Type() {
+		case query.List:
+			// For list case, we need to mix-in the length hash.
+			li, err := anchorSszInfo.ListInfo()
+			if err != nil {
+				return nil, fmt.Errorf("could not get list info for field %q: %w", anchorField.Name, err)
+			}
+
+			var lengthHash [32]byte
+			binary.LittleEndian.PutUint64(lengthHash[:8], li.Length())
+
+			topProofs = append([][]byte{lengthHash[:]}, topProofs...)
+
+			// Re-set anchorSszInfo to the element type.
+			anchorSszInfo, err = li.Element()
+			if err != nil {
+				return nil, fmt.Errorf("could not get element info for list field %q: %w", anchorField.Name, err)
+			}
+
+		case query.Vector:
+			vi, err := anchorSszInfo.VectorInfo()
+			if err != nil {
+				return nil, fmt.Errorf("could not get vector info for field %q: %w", anchorField.Name, err)
+			}
+
+			// Re-set anchorSszInfo to the element type.
+			anchorSszInfo, err = vi.Element()
+			if err != nil {
+				return nil, fmt.Errorf("could not get element info for vector field %q: %w", anchorField.Name, err)
+			}
+
+		default:
+			return nil, fmt.Errorf("field %q is not a List or Vector, cannot access by index", anchorField.Name)
+		}
+
+		topProofs = append(elementProof, topProofs...)
 	}
 
 	if len(path.Elements) == 1 {
@@ -274,27 +331,7 @@ func getBeaconStateProof(ctx context.Context, st state.BeaconState, info *query.
 		return nil, fmt.Errorf("could not compute relative gindex from the anchor: %w", err)
 	}
 
-	ci, err := info.ContainerInfo()
-	if err != nil {
-		return nil, fmt.Errorf("could not get container info: %w", err)
-	}
-
-	fields := ci.Fields()
-	if fields == nil {
-		return nil, errors.New("container has no fields")
-	}
-
-	field, ok := fields[anchorField.Name]
-	if !ok {
-		return nil, fmt.Errorf("field %q not found in container", anchorField.Name)
-	}
-
-	sszInfo := field.SszInfo()
-	if sszInfo == nil {
-		return nil, fmt.Errorf("field %q has no SSZ info", anchorField.Name)
-	}
-
-	bottomProof, err := sszInfo.Prove(relativeGindex)
+	bottomProof, err := anchorSszInfo.Prove(relativeGindex)
 	if err != nil {
 		return nil, fmt.Errorf("could not generate proof starting from the anchor field %q: %w", anchorField.Name, err)
 	}

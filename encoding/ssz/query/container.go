@@ -1,5 +1,10 @@
 package query
 
+import (
+	"errors"
+	"fmt"
+)
+
 // containerInfo has
 // 1. fields: a field map that maps a field's JSON name to its SszInfo for nested Containers
 // 2. order: a list of field names in the order they should be serialized
@@ -17,6 +22,26 @@ func (ci *containerInfo) Fields() map[string]*fieldInfo {
 	}
 
 	return ci.fields
+}
+
+// FieldInfo returns the SszInfo of the specified field in the container.
+func (ci *containerInfo) FieldInfo(fieldName string) (*SszInfo, error) {
+	fields := ci.Fields()
+	if fields == nil {
+		return nil, errors.New("container has no fields")
+	}
+
+	field, ok := fields[fieldName]
+	if !ok {
+		return nil, fmt.Errorf("field %q not found in container", fieldName)
+	}
+
+	sszInfo := field.SszInfo()
+	if sszInfo == nil {
+		return nil, fmt.Errorf("field %q has no SSZ info", fieldName)
+	}
+
+	return sszInfo, nil
 }
 
 type fieldInfo struct {

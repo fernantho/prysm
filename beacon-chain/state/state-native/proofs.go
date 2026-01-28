@@ -103,6 +103,90 @@ func (b *BeaconState) proofByFieldIndex(ctx context.Context, f types.FieldIndex)
 	return leaf, proof, nil
 }
 
+// ProofForFieldElement returns the element root (leaf) and the proof hashes for a specific
+// element within a list/vector field (e.g., validators[0]).
+func (b *BeaconState) ProofForFieldElement(ctx context.Context, f types.FieldIndex, index uint64) ([]byte, [][]byte, error) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
+	if err := b.validateFieldIndex(f); err != nil {
+		return nil, nil, err
+	}
+
+	if err := b.initializeMerkleLayers(ctx); err != nil {
+		return nil, nil, err
+	}
+	if err := b.recomputeDirtyFields(ctx); err != nil {
+		return nil, nil, err
+	}
+
+	fieldTrie, ok := b.stateFieldLeaves[f]
+	if !ok {
+		return nil, nil, errNotSupported("ProofForFieldElement", b.version)
+	}
+
+	// If the field trie is empty, initialize it by calling rootSelector.
+	// This happens when the state is first loaded and the field hasn't been modified yet.
+	if fieldTrie.Empty() {
+		if _, err := b.rootSelector(ctx, f); err != nil {
+			return nil, nil, err
+		}
+
+		// Re-fetch the field trie after initialization
+		fieldTrie = b.stateFieldLeaves[f]
+		if fieldTrie.Empty() {
+			return nil, nil, errNotSupported("ProofForFieldElement: field trie could not be initialized", b.version)
+		}
+	}
+
+	fieldLayers := fieldTrie.FieldLayers()
+	if int(index) >= len(fieldLayers[0]) {
+		return nil, nil, errNotSupported("ProofForFieldElement: index out of range", b.version)
+	}
+
+	leaf := fieldLayers[0][index][:]
+
+	// Conversion needed as it has different types.
+	convertedLayers := convertFieldLayersToMerkleLayers(fieldLayers)
+	elementProof := trie.ProofFromMerkleLayers(convertedLayers, int(index))
+
+	return leaf, elementProof, nil
+}
+
+// convertFieldLayersToMerkleLayers converts [][]*[32]byte to [][][]byte format
+// so we can use trie.ProofFromMerkleLayers.
+func convertFieldLayersToMerkleLayers(fieldLayers [][]*[32]byte) [][][]byte {
+	result := make([][][]byte, len(fieldLayers))
+	for i, layer := range fieldLayers {
+		zeroHash := trie.ZeroHashes[i]
+		paddedLen := nextPowerOf2(len(layer))
+		result[i] = make([][]byte, paddedLen)
+		for j := range paddedLen {
+			if j < len(layer) && layer[j] != nil {
+				result[i][j] = layer[j][:]
+			} else {
+				result[i][j] = zeroHash[:]
+			}
+		}
+	}
+	return result
+}
+
+// TODO: move to a common util package.
+func nextPowerOf2(n int) int {
+	if n <= 1 {
+		return 2 // Minimum 2 to ensure neighbor index is always valid
+	}
+	n--
+	n |= n >> 1
+	n |= n >> 2
+	n |= n >> 4
+	n |= n >> 8
+	n |= n >> 16
+	n++
+	return n
+}
+
 func (b *BeaconState) validateFieldIndex(f types.FieldIndex) error {
 	switch b.version {
 	case version.Phase0:

@@ -47,6 +47,10 @@ type Prover interface {
 
 	// ProofByFieldIndex returns the field root (leaf) and the proof hashes for the given field.
 	ProofByFieldIndex(ctx context.Context, f types.FieldIndex) ([]byte, [][]byte, error)
+
+	// ProofForFieldElement returns the element root (leaf) and the proof hashes for a specific
+	// element within a list/vector field. This is used for paths like .validators[0], .block_roots[5], etc.
+	ProofForFieldElement(ctx context.Context, f types.FieldIndex, index uint64) ([]byte, [][]byte, error)
 }
 
 // ReadOnlyBeaconState defines a struct which only has read access to beacon state methods.

@@ -273,3 +273,9 @@ func (f *FieldTrie) Empty() bool {
 func (f *FieldTrie) InsertFieldLayer(layer [][]*[32]byte) {
 	f.fieldLayers = layer
 }
+
+// FieldLayers is an accessor method that returns the underlying
+// field layers of the trie.
+func (f *FieldTrie) FieldLayers() [][]*[32]byte {
+	return f.fieldLayers
+}

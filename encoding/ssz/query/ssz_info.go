@@ -35,6 +35,14 @@ type SszInfo struct {
 	bitvectorInfo *bitvectorInfo
 }
 
+func (info *SszInfo) Type() SSZType {
+	if info == nil {
+		return SSZType(-1)
+	}
+
+	return info.sszType
+}
+
 func (info *SszInfo) Size() uint64 {
 	if info == nil {
 		return 0
