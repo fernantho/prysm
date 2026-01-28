@@ -3,6 +3,7 @@ package query
 import (
 	"errors"
 	"fmt"
+	"reflect"
 )
 
 // listInfo holds information about a SSZ List type.
@@ -14,6 +15,8 @@ type listInfo struct {
 	limit uint64
 	// element is the SSZ info of the list's element type.
 	element *SszInfo
+	// sliceValue is the reflect.Value of the underlying slice.
+	sliceValue reflect.Value
 	// length is the actual number of elements at runtime (0 if not set).
 	length uint64
 	// elementSizes caches each element's byte size for variable-sized type elements
@@ -32,6 +35,24 @@ func (l *listInfo) Element() (*SszInfo, error) {
 		return nil, errors.New("listInfo is nil")
 	}
 	return l.element, nil
+}
+
+// ElementValue returns the reflect.Value of the element at the given index.
+// It returns an invalid reflect.Value if the index is out of bounds.
+func (l *listInfo) ElementValue(i int) (reflect.Value, error) {
+	if l == nil {
+		return reflect.Value{}, errors.New("listInfo is nil")
+	}
+
+	if !l.sliceValue.IsValid() {
+		return reflect.Value{}, errors.New("sliceValue is not valid")
+	}
+
+	if i < 0 || i >= l.sliceValue.Len() {
+		return reflect.Value{}, fmt.Errorf("index %d out of bounds for list of length %d", i, l.sliceValue.Len())
+	}
+
+	return l.sliceValue.Index(i), nil
 }
 
 func (l *listInfo) Length() uint64 {

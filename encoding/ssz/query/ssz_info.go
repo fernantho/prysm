@@ -43,6 +43,12 @@ func (info *SszInfo) Type() SSZType {
 	return info.sszType
 }
 
+func (info *SszInfo) SetSource(source SSZObject) {
+	if info != nil {
+		info.source = source
+	}
+}
+
 func (info *SszInfo) Size() uint64 {
 	if info == nil {
 		return 0

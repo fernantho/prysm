@@ -261,11 +261,13 @@ func getBeaconStateProof(ctx context.Context, st state.BeaconState, info *query.
 	}
 
 	if anchorField.Index != nil {
+		index := *anchorField.Index
+
 		// Accessing an element within a list/vector:
 		// need to prepend element proofs.
-		elementLeaf, elementProof, err := st.ProofForFieldElement(ctx, fieldIndex, uint64(*anchorField.Index))
+		elementLeaf, elementProof, err := st.ProofForFieldElement(ctx, fieldIndex, index)
 		if err != nil {
-			return nil, fmt.Errorf("could not compute proof for element %s[%d]: %w", anchorField.Name, *anchorField.Index, err)
+			return nil, fmt.Errorf("could not compute proof for element %s[%d]: %w", anchorField.Name, index, err)
 		}
 
 		anchorLeaf = elementLeaf
@@ -287,6 +289,16 @@ func getBeaconStateProof(ctx context.Context, st state.BeaconState, info *query.
 			anchorSszInfo, err = li.Element()
 			if err != nil {
 				return nil, fmt.Errorf("could not get element info for list field %q: %w", anchorField.Name, err)
+			}
+
+			elementValue, err := li.ElementValue(int(index))
+			if err != nil {
+				return nil, fmt.Errorf("could not get reflect.Value for list element %s[%d]: %w", anchorField.Name, index, err)
+			}
+
+			// Try to set the source SSZ object for the anchorSszInfo.
+			if sszObj, ok := elementValue.Interface().(query.SSZObject); ok {
+				anchorSszInfo.SetSource(sszObj)
 			}
 
 		case query.Vector:
