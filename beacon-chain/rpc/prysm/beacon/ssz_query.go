@@ -3,6 +3,7 @@ package beacon
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/OffchainLabs/prysm/v7/network/httputil"
 	sszquerypb "github.com/OffchainLabs/prysm/v7/proto/ssz_query"
 	"github.com/OffchainLabs/prysm/v7/runtime/version"
+	ssz "github.com/prysmaticlabs/fastssz"
 )
 
 // QueryBeaconState handles SSZ Query request for BeaconState.
@@ -186,17 +188,59 @@ func (s *Server) QueryBeaconBlock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := &sszquerypb.SSZQueryResponse{
+	w.Header().Set(api.VersionHeader, version.String(signedBlock.Version()))
+	if req.IncludeProof {
+		proof, err := getSSZQueryProof(info, path)
+		if err != nil {
+			httputil.HandleError(w, "Could not compute merkle proofs: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		resp := &sszquerypb.SSZQueryResponseWithProof{
+			Root:   blockRoot[:],
+			Result: encodedBlock[offset : offset+length],
+			Proof:  toSSZQueryProof(proof),
+		}
+		responseSsz, err := resp.MarshalSSZ()
+		if err != nil {
+			httputil.HandleError(w, "Could not marshal response to SSZ: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		httputil.WriteSsz(w, responseSsz)
+		return
+	}
+
+	resp := &sszquerypb.SSZQueryResponse{
 		Root:   blockRoot[:],
 		Result: encodedBlock[offset : offset+length],
 	}
-
-	responseSsz, err := response.MarshalSSZ()
+	responseSsz, err := resp.MarshalSSZ()
 	if err != nil {
 		httputil.HandleError(w, "Could not marshal response to SSZ: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set(api.VersionHeader, version.String(signedBlock.Version()))
 	httputil.WriteSsz(w, responseSsz)
+}
+
+// getSSZQueryProof retrieves Merkle proof for a given SSZInfo object and query path,
+func getSSZQueryProof(info *query.SszInfo, path query.Path) (*ssz.Proof, error) {
+	gi, err := query.GetGeneralizedIndexFromPath(info, path)
+	if err != nil {
+		return nil, fmt.Errorf("get generalized index: %w", err)
+	}
+	proof, err := info.Prove(gi)
+	if err != nil {
+		return nil, fmt.Errorf("prove gindex %d: %w", gi, err)
+	}
+	return proof, nil
+}
+
+// toSSZQueryProof converts a fastssz.Proof to an sszquerypb.SSZQueryProof for serialization in the response.
+func toSSZQueryProof(proof *ssz.Proof) *sszquerypb.SSZQueryProof {
+	return &sszquerypb.SSZQueryProof{
+		Leaf:   proof.Leaf,
+		Gindex: uint64(proof.Index),
+		Proofs: proof.Hashes,
+	}
 }
