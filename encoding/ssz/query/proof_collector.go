@@ -153,6 +153,38 @@ func (pc *proofCollector) collectSibling(gindex uint64, hash [32]byte) {
 	pc.Unlock()
 }
 
+// hasTargetsInSubtree reports whether any registered proof target (leaf or sibling)
+// is a descendant of (or equal to) the given subtree root gindex.
+// Returns false when subtreeRoot is 0 (sentinel used for non-proof paths).
+func (pc *proofCollector) hasTargetsInSubtree(subtreeRoot uint64) bool {
+	if subtreeRoot == 0 {
+		return false
+	}
+	for g := range pc.requiredLeaves {
+		if isDescendantOrSelf(g, subtreeRoot) {
+			return true
+		}
+	}
+	for g := range pc.requiredSiblings {
+		if isDescendantOrSelf(g, subtreeRoot) {
+			return true
+		}
+	}
+	return false
+}
+
+// isDescendantOrSelf returns true if g == ancestor or g is below ancestor
+// in the generalized-index tree (i.e. walking g upward by halving reaches ancestor).
+func isDescendantOrSelf(g, ancestor uint64) bool {
+	for g >= ancestor {
+		if g == ancestor {
+			return true
+		}
+		g >>= 1
+	}
+	return false
+}
+
 // Merkleizers and proof collection methods
 
 // merkleize recursively traverses an SSZ info and computes the Merkle root of the subtree.
@@ -343,24 +375,35 @@ func (pc *proofCollector) merkleizeVectorBody(elemInfo *SszInfo, v reflect.Value
 		// Composite elements: compute each element root (no padding here; merkleizeVectorAndCollect pads).
 		chunks = make([][32]byte, length)
 
-		// Parallel per-element merkleization with proper gindices for proof collection.
-		var g errgroup.Group
-		g.SetLimit(runtime.GOMAXPROCS(0))
+		// Fast path: when no proof targets exist inside this subtree and the
+		// elements are containers, use vectorized hashing (OptimizedSliceRoots)
+		// instead of per-element recursive merkleization.
+		if elemInfo.sszType == Container && !pc.hasTargetsInSubtree(subtreeRootGindex) {
+			var err error
+			chunks, err = OptimizedSliceRoots(elemInfo, v, pc)
+			if err != nil {
+				return [32]byte{}, err
+			}
+		} else {
+			// Parallel per-element merkleization with proper gindices for proof collection.
+			var g errgroup.Group
+			g.SetLimit(runtime.GOMAXPROCS(0))
 
-		for i := range length {
-			g.Go(func() error {
-				elemGindex := subtreeRootGindex<<depth + uint64(i)
-				htr, err := pc.merkleize(elemInfo, v.Index(i), elemGindex)
-				if err != nil {
-					return fmt.Errorf("index %d: %w", i, err)
-				}
-				chunks[i] = htr
-				return nil
-			})
-		}
+			for i := range length {
+				g.Go(func() error {
+					elemGindex := subtreeRootGindex<<depth + uint64(i)
+					htr, err := pc.merkleize(elemInfo, v.Index(i), elemGindex)
+					if err != nil {
+						return fmt.Errorf("index %d: %w", i, err)
+					}
+					chunks[i] = htr
+					return nil
+				})
+			}
 
-		if err := g.Wait(); err != nil {
-			return [32]byte{}, err
+			if err := g.Wait(); err != nil {
+				return [32]byte{}, err
+			}
 		}
 	}
 
