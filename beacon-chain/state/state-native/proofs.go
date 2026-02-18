@@ -136,7 +136,7 @@ func (b *BeaconState) ProofForFieldElement(ctx context.Context, f types.FieldInd
 		// Re-fetch the field trie after initialization
 		fieldTrie = b.stateFieldLeaves[f]
 		if fieldTrie.Empty() {
-			return nil, nil, fmt.Errorf("ProofForFieldElement: field trie is still empty after initialization for field %s", f.String())
+			return nil, nil, fmt.Errorf("field trie is still empty after initialization for field %s", f.String())
 		}
 	}
 
