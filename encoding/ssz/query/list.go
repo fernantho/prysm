@@ -38,21 +38,28 @@ func (l *listInfo) Element() (*SszInfo, error) {
 }
 
 // ElementValue returns the reflect.Value of the element at the given index.
-// It returns an invalid reflect.Value if the index is out of bounds.
-func (l *listInfo) ElementValue(i int) (reflect.Value, error) {
+// It returns an invalid reflect.Value if the index is out of bounds, or if the underlying slice is not valid.
+func (l *listInfo) ElementValue(index int) (reflect.Value, error) {
 	if l == nil {
 		return reflect.Value{}, errors.New("listInfo is nil")
 	}
 
-	if !l.sliceValue.IsValid() {
+	sliceValue := l.sliceValue
+
+	if !sliceValue.IsValid() {
 		return reflect.Value{}, errors.New("sliceValue is not valid")
 	}
 
-	if i < 0 || i >= l.sliceValue.Len() {
-		return reflect.Value{}, fmt.Errorf("index %d out of bounds for list of length %d", i, l.sliceValue.Len())
+	// Safe-guard: ensure sliceValue is actually a slice or array before calling Len and Index.
+	if sliceValue.Kind() != reflect.Slice && sliceValue.Kind() != reflect.Array {
+		return reflect.Value{}, fmt.Errorf("sliceValue has kind %s, expected slice or array", sliceValue.Kind())
 	}
 
-	return l.sliceValue.Index(i), nil
+	if index < 0 || index >= sliceValue.Len() {
+		return reflect.Value{}, fmt.Errorf("index %d out of bounds for list of length %d", index, sliceValue.Len())
+	}
+
+	return sliceValue.Index(index), nil
 }
 
 func (l *listInfo) Length() uint64 {
