@@ -15,18 +15,13 @@ type containerInfo struct {
 	fixedOffset uint64
 }
 
-// Fields returns the field map of the container.
-func (ci *containerInfo) Fields() map[string]*fieldInfo {
-	if ci == nil {
-		return nil
-	}
-
-	return ci.fields
-}
-
 // FieldInfo returns the SszInfo of the specified field in the container.
 func (ci *containerInfo) FieldInfo(fieldName string) (*SszInfo, error) {
-	fields := ci.Fields()
+	if ci == nil {
+		return nil, errors.New("containerInfo is nil")
+	}
+
+	fields := ci.fields
 	if fields == nil {
 		return nil, errors.New("container has no fields")
 	}
@@ -36,7 +31,7 @@ func (ci *containerInfo) FieldInfo(fieldName string) (*SszInfo, error) {
 		return nil, fmt.Errorf("field %q not found in container", fieldName)
 	}
 
-	sszInfo := field.SszInfo()
+	sszInfo := field.sszInfo
 	if sszInfo == nil {
 		return nil, fmt.Errorf("field %q has no SSZ info", fieldName)
 	}
@@ -51,13 +46,4 @@ type fieldInfo struct {
 	offset uint64
 	// goFieldName is the name of the field in Go struct.
 	goFieldName string
-}
-
-// SszInfo returns the SszInfo of the field.
-func (fi *fieldInfo) SszInfo() *SszInfo {
-	if fi == nil {
-		return nil
-	}
-
-	return fi.sszInfo
 }
