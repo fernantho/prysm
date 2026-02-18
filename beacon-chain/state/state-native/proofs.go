@@ -9,6 +9,7 @@ import (
 	"github.com/OffchainLabs/prysm/v7/config/params"
 	"github.com/OffchainLabs/prysm/v7/container/trie"
 	"github.com/OffchainLabs/prysm/v7/encoding/bytesutil"
+	"github.com/OffchainLabs/prysm/v7/math"
 	"github.com/OffchainLabs/prysm/v7/runtime/version"
 )
 
@@ -169,7 +170,10 @@ func convertFieldLayersToMerkleLayers(fieldLayers [][]*[32]byte) [][][]byte {
 	result := make([][][]byte, len(fieldLayers))
 	for i, layer := range fieldLayers {
 		zeroHash := trie.ZeroHashes[i]
-		paddedLen := nextPowerOf2(len(layer))
+		paddedLen := int(math.NextPowerOf2(uint64(len(layer))))
+		if paddedLen < 2 {
+			paddedLen = 2 // Minimum 2 to ensure neighbor index is always valid
+		}
 		result[i] = make([][]byte, paddedLen)
 		for j := range paddedLen {
 			if j < len(layer) && layer[j] != nil {
@@ -180,21 +184,6 @@ func convertFieldLayersToMerkleLayers(fieldLayers [][]*[32]byte) [][][]byte {
 		}
 	}
 	return result
-}
-
-// TODO: move to a common util package.
-func nextPowerOf2(n int) int {
-	if n <= 1 {
-		return 2 // Minimum 2 to ensure neighbor index is always valid
-	}
-	n--
-	n |= n >> 1
-	n |= n >> 2
-	n |= n >> 4
-	n |= n >> 8
-	n |= n >> 16
-	n++
-	return n
 }
 
 func (b *BeaconState) validateFieldIndex(f types.FieldIndex) error {

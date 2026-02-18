@@ -6,6 +6,7 @@ import (
 	"math/bits"
 
 	"github.com/OffchainLabs/prysm/v7/encoding/ssz"
+	"github.com/OffchainLabs/prysm/v7/math"
 )
 
 const listBaseIndex = 2
@@ -50,7 +51,7 @@ func GetGeneralizedIndexFromPath(info *SszInfo, path Path) (uint64, error) {
 		}
 
 		// Update the generalized index to point to the specified field
-		currentIndex = currentIndex*nextPowerOfTwo(chunkCount) + fieldPos
+		currentIndex = currentIndex*math.NextPowerOf2(chunkCount) + fieldPos
 		currentInfo = fieldSsz
 
 		// Check for length access: element is the last in the path and requests length
@@ -202,7 +203,7 @@ func calculateListGeneralizedIndex(fieldSsz *SszInfo, element PathElement, paren
 		return nil, 0, fmt.Errorf("chunk count error: %w", err)
 	}
 	// root = root * base_index * pow2ceil(chunk_count(container)) + fieldPos
-	listIndex := parentIndex*listBaseIndex*nextPowerOfTwo(innerChunkCount) + chunkPos
+	listIndex := parentIndex*listBaseIndex*math.NextPowerOf2(innerChunkCount) + chunkPos
 	currentInfo := elem
 
 	return currentInfo, listIndex, nil
@@ -235,7 +236,7 @@ func calculateVectorGeneralizedIndex(fieldSsz *SszInfo, element PathElement, par
 	if err != nil {
 		return nil, 0, fmt.Errorf("chunk count error: %w", err)
 	}
-	vectorIndex := parentIndex*nextPowerOfTwo(innerChunkCount) + chunkPos
+	vectorIndex := parentIndex*math.NextPowerOf2(innerChunkCount) + chunkPos
 
 	currentInfo := elem
 	return currentInfo, vectorIndex, nil
@@ -252,7 +253,7 @@ func calculateBitlistGeneralizedIndex(fieldSsz *SszInfo, element PathElement, pa
 	if err != nil {
 		return nil, 0, fmt.Errorf("chunk count error: %w", err)
 	}
-	bitlistIndex := parentIndex*listBaseIndex*nextPowerOfTwo(innerChunkCount) + chunkPos
+	bitlistIndex := parentIndex*listBaseIndex*math.NextPowerOf2(innerChunkCount) + chunkPos
 
 	// Bits element is not further descendable; set to basic to guard further steps
 	currentInfo := &SszInfo{sszType: Boolean}
@@ -269,7 +270,7 @@ func calculateBitvectorGeneralizedIndex(fieldSsz *SszInfo, element PathElement, 
 	if err != nil {
 		return nil, 0, fmt.Errorf("chunk count error: %w", err)
 	}
-	bitvectorIndex := parentIndex*nextPowerOfTwo(innerChunkCount) + chunkPos
+	bitvectorIndex := parentIndex*math.NextPowerOf2(innerChunkCount) + chunkPos
 
 	// Bits element is not further descendable; set to basic to guard further steps
 	currentInfo := &SszInfo{sszType: Boolean}
@@ -288,18 +289,6 @@ func itemLength(info *SszInfo) uint64 {
 		return info.Size()
 	}
 	return ssz.BytesPerChunk
-}
-
-// nextPowerOfTwo computes the next power of two greater than or equal to v.
-func nextPowerOfTwo(v uint64) uint64 {
-	v--
-	v |= v >> 1
-	v |= v >> 2
-	v |= v >> 4
-	v |= v >> 8
-	v |= v >> 16
-	v++
-	return uint64(v)
 }
 
 // getChunkCount returns the number of chunks for the given SSZInfo (equivalent to chunk_count in the spec)
