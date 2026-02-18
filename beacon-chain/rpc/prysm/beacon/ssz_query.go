@@ -225,61 +225,63 @@ func (s *Server) QueryBeaconBlock(w http.ResponseWriter, r *http.Request) {
 
 // getBeaconStateProof computes the merkle proof for the given path in the BeaconState.
 // Optimized by using hybrid approach:
-// - Leverage the native state's proof generation for anchor fields.
-// - If needed, use generic proof collector for deeper fields, starting from the anchor.
+// - Leverage the native state's proof generation for anchor fields (= top-level fields e.g., "validators", "latest_block_header").
+// - If needed, use generic proof collector for deeper fields, starting from the anchor (e.g., "validators[0].effective_balance").
 func getBeaconStateProof(ctx context.Context, st state.BeaconState, info *query.SszInfo, path query.Path) (*sszquerypb.SSZQueryProof, error) {
 	if len(path.Elements) == 0 {
 		return nil, errors.New("cannot compute proof for empty path")
 	}
 
-	anchorField := path.Elements[0]
-	anchorPath := query.Path{Elements: []query.PathElement{anchorField}}
+	var (
+		anchorField     = path.Elements[0]
+		anchorFieldName = anchorField.Name
+		anchorPath      = query.Path{Elements: []query.PathElement{anchorField}}
+	)
 
-	ci, err := info.ContainerInfo()
+	beaconStateInfo, err := info.ContainerInfo()
 	if err != nil {
-		return nil, fmt.Errorf("could not get container info: %w", err)
+		return nil, fmt.Errorf("could not get container info of BeaconState: %w", err)
 	}
 
-	anchorSszInfo, err := ci.FieldInfo(anchorField.Name)
+	anchorSszInfo, err := beaconStateInfo.FieldInfo(anchorFieldName)
 	if err != nil {
-		return nil, fmt.Errorf("could not get field info for anchor field %q: %w", anchorField.Name, err)
+		return nil, fmt.Errorf("could not get field info for anchor field %q: %w", anchorFieldName, err)
 	}
 
 	anchorGindex, err := query.GetGeneralizedIndexFromPath(info, anchorPath)
 	if err != nil {
-		return nil, fmt.Errorf("could not compute gindex for anchor field %q: %w", anchorField.Name, err)
+		return nil, fmt.Errorf("could not compute gindex for anchor field %q: %w", anchorFieldName, err)
 	}
 
-	fieldIndex, ok := types.FieldIndexByName(anchorField.Name)
+	fieldIndex, ok := types.FieldIndexByName(anchorFieldName)
 	if !ok {
-		return nil, fmt.Errorf("unknown field name: %s", anchorField.Name)
+		return nil, fmt.Errorf("unknown field name: %s", anchorFieldName)
 	}
 
 	anchorLeaf, topProofs, err := st.ProofByFieldIndex(ctx, fieldIndex)
 	if err != nil {
-		return nil, fmt.Errorf("could not compute proof for anchor field %q: %w", anchorField.Name, err)
+		return nil, fmt.Errorf("could not compute proof for anchor field %q: %w", anchorFieldName, err)
 	}
 
 	if anchorField.Index != nil {
+		// Accessing an element within a list/vector.
 		index := *anchorField.Index
 
-		// Accessing an element within a list/vector:
-		// need to prepend element proofs.
 		elementLeaf, elementProof, err := st.ProofForFieldElement(ctx, fieldIndex, index)
 		if err != nil {
-			return nil, fmt.Errorf("could not compute proof for element %s[%d]: %w", anchorField.Name, index, err)
+			return nil, fmt.Errorf("could not compute proof for element %s[%d]: %w", anchorFieldName, index, err)
 		}
 
 		anchorLeaf = elementLeaf
 
 		switch anchorSszInfo.Type() {
 		case query.List:
-			// For list case, we need to mix-in the length hash.
 			li, err := anchorSszInfo.ListInfo()
 			if err != nil {
-				return nil, fmt.Errorf("could not get list info for field %q: %w", anchorField.Name, err)
+				return nil, fmt.Errorf("could not get list info for field %q: %w", anchorFieldName, err)
 			}
 
+			// For list case, we need to mix-in the length hash.
 			var lengthHash [32]byte
 			binary.LittleEndian.PutUint64(lengthHash[:8], li.Length())
 
@@ -288,15 +290,16 @@ func getBeaconStateProof(ctx context.Context, st state.BeaconState, info *query.
 			// Re-set anchorSszInfo to the element type.
 			anchorSszInfo, err = li.Element()
 			if err != nil {
-				return nil, fmt.Errorf("could not get element info for list field %q: %w", anchorField.Name, err)
+				return nil, fmt.Errorf("could not get element info for list field %q: %w", anchorFieldName, err)
 			}
 
+			// Try to get the real value (reflect.Value) of the element itself,
+			// and set it as the source of anchorSszInfo for potential deeper proof generation later.
 			elementValue, err := li.ElementValue(int(index))
 			if err != nil {
-				return nil, fmt.Errorf("could not get reflect.Value for list element %s[%d]: %w", anchorField.Name, index, err)
+				return nil, fmt.Errorf("could not get reflect.Value for list element %s[%d]: %w", anchorFieldName, index, err)
 			}
 
-			// Try to set the source SSZ object for the anchorSszInfo.
 			if sszObj, ok := elementValue.Interface().(query.SSZObject); ok {
 				anchorSszInfo.SetSource(sszObj)
 			}
@@ -304,17 +307,17 @@ func getBeaconStateProof(ctx context.Context, st state.BeaconState, info *query.
 		case query.Vector:
 			vi, err := anchorSszInfo.VectorInfo()
 			if err != nil {
-				return nil, fmt.Errorf("could not get vector info for field %q: %w", anchorField.Name, err)
+				return nil, fmt.Errorf("could not get vector info for field %q: %w", anchorFieldName, err)
 			}
 
 			// Re-set anchorSszInfo to the element type.
 			anchorSszInfo, err = vi.Element()
 			if err != nil {
-				return nil, fmt.Errorf("could not get element info for vector field %q: %w", anchorField.Name, err)
+				return nil, fmt.Errorf("could not get element info for vector field %q: %w", anchorFieldName, err)
 			}
 
 		default:
-			return nil, fmt.Errorf("field %q is not a List or Vector, cannot access by index", anchorField.Name)
+			return nil, fmt.Errorf("field %q is not a List or Vector, cannot access by index", anchorFieldName)
 		}
 
 		topProofs = append(elementProof, topProofs...)
@@ -329,9 +332,10 @@ func getBeaconStateProof(ctx context.Context, st state.BeaconState, info *query.
 		}, nil
 	}
 
-	// Note: After this line, we now have to deepen the path from the anchor field.
+	// Note: We now have to deepen the path from the anchor field.
 	// A proof collector instance works generically for any SSZ object,
-	// so we can use it to compute the deeper proof.
+	// so we can use it to compute the deeper proof,
+	// starting from the anchor field as the new "root".
 
 	targetGindex, err := query.GetGeneralizedIndexFromPath(info, path)
 	if err != nil {
@@ -345,7 +349,7 @@ func getBeaconStateProof(ctx context.Context, st state.BeaconState, info *query.
 
 	bottomProof, err := anchorSszInfo.Prove(relativeGindex)
 	if err != nil {
-		return nil, fmt.Errorf("could not generate proof starting from the anchor field %q: %w", anchorField.Name, err)
+		return nil, fmt.Errorf("could not generate proof starting from the anchor field %q: %w", anchorFieldName, err)
 	}
 
 	return &sszquerypb.SSZQueryProof{

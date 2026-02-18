@@ -103,6 +103,8 @@ func GetGeneralizedIndexFromPath(info *SszInfo, path Path) (uint64, error) {
 // ComputeRelativeGindex computes the generalized index of a child
 // relative to its parent generalized index.
 // For example, given parent gindex 36 (100100) and child gindex 289 (100100001),
+// the shift would be 3 (since 289 is 3 bits longer than 36),
+// and the relative offset would be 001 (since the last 3 bits of 289 are 001).
 // the relative gindex would be 9 (1001).
 // Used for computing relative gindex for proof collection.
 func ComputeRelativeGindex(parent, child uint64) (uint64, error) {

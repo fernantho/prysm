@@ -43,6 +43,10 @@ func (info *SszInfo) Type() SSZType {
 	return info.sszType
 }
 
+// SetSource overwrites the source SSZObject for the SszInfo.
+// This is useful when we want to set the actual SSZ object
+// for an anchor field during proof generation,
+// so that we can compute deeper proofs starting from that anchor field.
 func (info *SszInfo) SetSource(source SSZObject) {
 	if info != nil {
 		info.source = source
