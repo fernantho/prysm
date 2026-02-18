@@ -3,6 +3,7 @@ package state_native
 import (
 	"context"
 	"encoding/binary"
+	"fmt"
 
 	"github.com/OffchainLabs/prysm/v7/beacon-chain/state/state-native/types"
 	"github.com/OffchainLabs/prysm/v7/config/params"
@@ -135,20 +136,29 @@ func (b *BeaconState) ProofForFieldElement(ctx context.Context, f types.FieldInd
 		// Re-fetch the field trie after initialization
 		fieldTrie = b.stateFieldLeaves[f]
 		if fieldTrie.Empty() {
-			return nil, nil, errNotSupported("ProofForFieldElement: field trie could not be initialized", b.version)
+			return nil, nil, fmt.Errorf("ProofForFieldElement: field trie is still empty after initialization for field %s", f.String())
 		}
 	}
 
 	fieldLayers := fieldTrie.FieldLayers()
-	if int(index) >= len(fieldLayers[0]) {
-		return nil, nil, errNotSupported("ProofForFieldElement: index out of range", b.version)
+
+	// For packed arrays (e.g., balances), convert element index to chunk index.
+	// In SSZ, basic types like uint64 are packed into 32-byte chunks.
+	// For example, balances packs 4 uint64 values (4 * 8 = 32 bytes) per chunk.
+	chunkIndex := index
+	if elemsInChunk, err := f.ElemsInChunk(); err == nil && elemsInChunk > 0 {
+		chunkIndex = index / elemsInChunk
 	}
 
-	leaf := fieldLayers[0][index][:]
+	if int(chunkIndex) >= len(fieldLayers[0]) {
+		return nil, nil, fmt.Errorf("index %d (chunk %d) out of bounds for field %s with %d chunks", index, chunkIndex, f.String(), len(fieldLayers[0]))
+	}
+
+	leaf := fieldLayers[0][chunkIndex][:]
 
 	// Conversion needed as it has different types.
 	convertedLayers := convertFieldLayersToMerkleLayers(fieldLayers)
-	elementProof := trie.ProofFromMerkleLayers(convertedLayers, int(index))
+	elementProof := trie.ProofFromMerkleLayers(convertedLayers, int(chunkIndex))
 
 	return leaf, elementProof, nil
 }
