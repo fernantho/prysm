@@ -39,6 +39,20 @@ func (ci *containerInfo) FieldInfo(fieldName string) (*SszInfo, error) {
 	return sszInfo, nil
 }
 
+// FieldPosition returns the position (index) of the specified field name in the container's
+// serialization order. This position corresponds to the field's index in the SSZ container.
+func (ci *containerInfo) FieldPosition(fieldName string) (int, bool) {
+	if ci == nil {
+		return 0, false
+	}
+	for i, name := range ci.order {
+		if name == fieldName {
+			return i, true
+		}
+	}
+	return 0, false
+}
+
 type fieldInfo struct {
 	// sszInfo contains the SSZ information of the field.
 	sszInfo *SszInfo

@@ -14,7 +14,6 @@ import (
 	"github.com/OffchainLabs/prysm/v7/beacon-chain/rpc/eth/shared"
 	"github.com/OffchainLabs/prysm/v7/beacon-chain/rpc/lookup"
 	"github.com/OffchainLabs/prysm/v7/beacon-chain/state"
-	"github.com/OffchainLabs/prysm/v7/beacon-chain/state/state-native/types"
 	"github.com/OffchainLabs/prysm/v7/encoding/ssz/query"
 	"github.com/OffchainLabs/prysm/v7/monitoring/tracing/trace"
 	"github.com/OffchainLabs/prysm/v7/network/httputil"
@@ -253,12 +252,12 @@ func getBeaconStateProof(ctx context.Context, st state.BeaconState, info *query.
 		return nil, fmt.Errorf("could not compute gindex for anchor field %q: %w", anchorFieldName, err)
 	}
 
-	fieldIndex, ok := types.FieldIndexByName(anchorFieldName)
+	fieldPosition, ok := beaconStateInfo.FieldPosition(anchorFieldName)
 	if !ok {
 		return nil, fmt.Errorf("unknown field name: %s", anchorFieldName)
 	}
 
-	anchorLeaf, topProofs, err := st.ProofByFieldIndex(ctx, fieldIndex)
+	anchorLeaf, topProofs, err := st.ProofByFieldPosition(ctx, fieldPosition)
 	if err != nil {
 		return nil, fmt.Errorf("could not compute proof for anchor field %q: %w", anchorFieldName, err)
 	}
@@ -267,7 +266,7 @@ func getBeaconStateProof(ctx context.Context, st state.BeaconState, info *query.
 		// Accessing an element within a list/vector.
 		index := *anchorField.Index
 
-		elementLeaf, elementProof, err := st.ProofForFieldElement(ctx, fieldIndex, index)
+		elementLeaf, elementProof, err := st.ProofForFieldElementByPosition(ctx, fieldPosition, index)
 		if err != nil {
 			return nil, fmt.Errorf("could not compute proof for element %s[%d]: %w", anchorFieldName, index, err)
 		}

@@ -245,65 +245,6 @@ func (f FieldIndex) ElemsInChunk() (uint64, error) {
 	}
 }
 
-// fieldIndexByName maps field names to their FieldIndex values.
-// Used for lookups by name.
-var fieldIndexByName = map[string]FieldIndex{
-	"genesis_time":                     GenesisTime,
-	"genesis_validators_root":          GenesisValidatorsRoot,
-	"slot":                             Slot,
-	"fork":                             Fork,
-	"latest_block_header":              LatestBlockHeader,
-	"block_roots":                      BlockRoots,
-	"state_roots":                      StateRoots,
-	"historical_roots":                 HistoricalRoots,
-	"eth1_data":                        Eth1Data,
-	"eth1_data_votes":                  Eth1DataVotes,
-	"eth1_deposit_index":               Eth1DepositIndex,
-	"validators":                       Validators,
-	"balances":                         Balances,
-	"randao_mixes":                     RandaoMixes,
-	"slashings":                        Slashings,
-	"previous_epoch_attestations":      PreviousEpochAttestations,
-	"current_epoch_attestations":       CurrentEpochAttestations,
-	"previous_epoch_participation":     PreviousEpochParticipationBits,
-	"current_epoch_participation":      CurrentEpochParticipationBits,
-	"justification_bits":               JustificationBits,
-	"previous_justified_checkpoint":    PreviousJustifiedCheckpoint,
-	"current_justified_checkpoint":     CurrentJustifiedCheckpoint,
-	"finalized_checkpoint":             FinalizedCheckpoint,
-	"inactivity_scores":                InactivityScores,
-	"current_sync_committee":           CurrentSyncCommittee,
-	"next_sync_committee":              NextSyncCommittee,
-	"latest_execution_payload_header":  LatestExecutionPayloadHeader,
-	"latest_execution_payload_bid":     LatestExecutionPayloadBid,
-	"next_withdrawal_index":            NextWithdrawalIndex,
-	"next_withdrawal_validator_index":  NextWithdrawalValidatorIndex,
-	"historical_summaries":             HistoricalSummaries,
-	"deposit_requests_start_index":     DepositRequestsStartIndex,
-	"deposit_balance_to_consume":       DepositBalanceToConsume,
-	"exit_balance_to_consume":          ExitBalanceToConsume,
-	"earliest_exit_epoch":              EarliestExitEpoch,
-	"consolidation_balance_to_consume": ConsolidationBalanceToConsume,
-	"earliest_consolidation_epoch":     EarliestConsolidationEpoch,
-	"pending_deposits":                 PendingDeposits,
-	"pending_partial_withdrawals":      PendingPartialWithdrawals,
-	"pending_consolidations":           PendingConsolidations,
-	"proposer_lookahead":               ProposerLookahead,
-	"builders":                         Builders,
-	"next_withdrawal_builder_index":    NextWithdrawalBuilderIndex,
-	"execution_payload_availability":   ExecutionPayloadAvailability,
-	"builder_pending_payments":         BuilderPendingPayments,
-	"builder_pending_withdrawals":      BuilderPendingWithdrawals,
-	"latest_block_hash":                LatestBlockHash,
-	"payload_expected_withdrawals":     PayloadExpectedWithdrawals,
-}
-
-// FieldIndexByName looks up a FieldIndex by its name.
-func FieldIndexByName(name string) (FieldIndex, bool) {
-	idx, ok := fieldIndexByName[name]
-	return idx, ok
-}
-
 // Below we define a set of useful enum values for the field
 // indices of the beacon state. For example, genesisTime is the
 // 0th field of the beacon state. This is helpful when we are

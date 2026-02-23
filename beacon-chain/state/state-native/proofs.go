@@ -105,6 +105,28 @@ func (b *BeaconState) proofByFieldIndex(ctx context.Context, f types.FieldIndex)
 	return leaf, proof, nil
 }
 
+// ProofByFieldPosition constructs proofs for a field at the given position
+// in the beacon state container. Returns the field root (leaf) and the proof hashes.
+func (b *BeaconState) ProofByFieldPosition(ctx context.Context, pos int) ([]byte, [][]byte, error) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
+	if err := b.initializeMerkleLayers(ctx); err != nil {
+		return nil, nil, err
+	}
+	if err := b.recomputeDirtyFields(ctx); err != nil {
+		return nil, nil, err
+	}
+
+	if pos < 0 || pos >= len(b.merkleLayers[0]) {
+		return nil, nil, fmt.Errorf("field position %d out of bounds (state has %d fields)", pos, len(b.merkleLayers[0]))
+	}
+
+	leaf := b.merkleLayers[0][pos]
+	proof := trie.ProofFromMerkleLayers(b.merkleLayers, pos)
+	return leaf, proof, nil
+}
+
 // ProofForFieldElement returns the element root (leaf) and the proof hashes for a specific
 // element within a list/vector field (e.g., validators[0]).
 func (b *BeaconState) ProofForFieldElement(ctx context.Context, f types.FieldIndex, index uint64) ([]byte, [][]byte, error) {
@@ -162,6 +184,25 @@ func (b *BeaconState) ProofForFieldElement(ctx context.Context, f types.FieldInd
 	elementProof := trie.ProofFromMerkleLayers(convertedLayers, int(chunkIndex))
 
 	return leaf, elementProof, nil
+}
+
+// ProofForFieldElementByPosition returns the element root (leaf) and the proof hashes for a specific
+// element within a list/vector field, identified by its position in the beacon state container.
+func (b *BeaconState) ProofForFieldElementByPosition(ctx context.Context, pos int, index uint64) ([]byte, [][]byte, error) {
+	// Find the FieldIndex that matches this position in the current state.
+	var fieldIdx types.FieldIndex
+	found := false
+	for f := range b.stateFieldLeaves {
+		if f.RealPosition() == pos {
+			fieldIdx = f
+			found = true
+			break
+		}
+	}
+	if !found {
+		return nil, nil, fmt.Errorf("no field trie found for position %d", pos)
+	}
+	return b.ProofForFieldElement(ctx, fieldIdx, index)
 }
 
 // convertFieldLayersToMerkleLayers converts [][]*[32]byte to [][][]byte format
